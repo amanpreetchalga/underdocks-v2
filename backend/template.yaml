@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  underdocks-v2-backend
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 1024
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref UnderdocksInventoryV2
+
+Resources:
+  UnderdocksInventoryV2:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UnderdocksInventoryV2
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  UnderdocksApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowMethods:
+          - "*"
+
+  GetItemsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: getItems.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items
+            Method: GET
+
+  CreateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: createItem.handler
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items
+            Method: POST
+
+  UpdateStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: updateStock.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/{id}/stock
+            Method: PATCH
+
+  DeleteItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: deleteItem.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/{id}
+            Method: DELETE
+
+  CheckInventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: checkInventory.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/{id}/check
+            Method: POST
+
+  ParseReceiptFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: parseReceipt.handler
+      Environment:
+        Variables:
+          AZURE_ENDPOINT: "https://underdocks-ocr.cognitiveservices.azure.com/"
+          AZURE_API_KEY: "YOUR_AZURE_API_KEY"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /receipts/parse
+            Method: POST
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${UnderdocksApi}.execute-api.${AWS::Region}.amazonaws.com/"

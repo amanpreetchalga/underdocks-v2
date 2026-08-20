@@ -1,0 +1,25 @@
+{
+  "name": "underdocks-v2-backend",
+  "version": "1.0.0",
+  "description": "Backend for Underdocks Inventory",
+  "scripts": {
+    "build": "esbuild src/handlers/*.ts --bundle --minify --sourcemap --platform=node --target=node20 --outdir=dist",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:start": "docker-compose up -d",
+    "db:setup": "node --loader ts-node/esm scripts/setup-db.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-textract": "^3.1111.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "@azure/ai-form-recognizer": "^5.1.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}
