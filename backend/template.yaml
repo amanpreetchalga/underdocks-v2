@@ -3,6 +3,13 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   underdocks-v2-backend
 
+Parameters:
+  AzureApiKey:
+    Type: String
+    Description: Azure Document Intelligence API Key
+    NoEcho: true
+    Default: "YOUR_AZURE_API_KEY"
+
 Globals:
   Function:
     Timeout: 15
@@ -142,7 +149,7 @@ Resources:
       Environment:
         Variables:
           AZURE_ENDPOINT: "https://underdocks-ocr.cognitiveservices.azure.com/"
-          AZURE_API_KEY: "YOUR_AZURE_API_KEY"
+          AZURE_API_KEY: !Ref AzureApiKey
       Events:
         Api:
           Type: HttpApi
