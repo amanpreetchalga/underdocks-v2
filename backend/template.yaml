@@ -102,6 +102,22 @@ Resources:
             Path: /items/{id}
             Method: DELETE
 
+  UpdateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: updateItem.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/{id}/details
+            Method: PATCH
+
   CheckInventoryFunction:
     Type: AWS::Serverless::Function
     Properties:

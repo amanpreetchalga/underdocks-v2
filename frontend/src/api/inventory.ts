@@ -29,13 +29,34 @@ export const useCreateItem = () => {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newItem) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousItems = queryClient.getQueryData<InventoryItem[]>(['items']);
+
+      if (previousItems) {
+        queryClient.setQueryData<InventoryItem[]>(['items'], [
+          ...previousItems,
+          {
+            ...newItem,
+            id: `temp-${Date.now()}`,
+            updatedAt: new Date().toISOString(),
+          } as InventoryItem,
+        ]);
+      }
+      return { previousItems };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousItems) {
+        queryClient.setQueryData(['items'], context.previousItems);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
     },
   });
 };
 
-export const useUpdateStock = () => {
+export function useUpdateStock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, delta }: { id: string; delta: number }) => {
@@ -47,27 +68,46 @@ export const useUpdateStock = () => {
       if (!response.ok) throw new Error('Failed to update stock');
       return response.json();
     },
+    // We will wait for the stock update to complete before invalidating
+    // to ensure the DB reflects the final state, though we are optimistic below.
     onMutate: async ({ id, delta }) => {
       await queryClient.cancelQueries({ queryKey: ['items'] });
       const previousItems = queryClient.getQueryData<InventoryItem[]>(['items']);
 
       if (previousItems) {
-        queryClient.setQueryData<InventoryItem[]>(
-          ['items'],
-          previousItems.map((item) =>
-            item.id === id ? { ...item, currentStock: item.currentStock + delta } : item
-          )
-        );
+        queryClient.setQueryData<InventoryItem[]>(['items'], old => {
+          if (!old) return old;
+          return old.map(item =>
+            item.id === id ? { ...item, currentStock: Math.max(0, item.currentStock + delta) } : item
+          );
+        });
       }
-
       return { previousItems };
     },
-    onError: (_, __, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousItems) {
         queryClient.setQueryData(['items'], context.previousItems);
       }
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    }
+  });
+}
+
+export function useUpdateItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Omit<InventoryItem, 'id' | 'currentStock' | 'lastCheckVariance' | 'lastCheckDate'>> }) => {
+      const response = await fetch(`${API_URL}/items/${id}/details`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update item details');
+      return response.json();
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
     },
   });
@@ -82,7 +122,24 @@ export const useDeleteItem = () => {
       });
       if (!response.ok) throw new Error('Failed to delete item');
     },
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousItems = queryClient.getQueryData<InventoryItem[]>(['items']);
+
+      if (previousItems) {
+        queryClient.setQueryData<InventoryItem[]>(
+          ['items'],
+          previousItems.filter(item => item.id !== id)
+        );
+      }
+      return { previousItems };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousItems) {
+        queryClient.setQueryData(['items'], context.previousItems);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
     },
   });

@@ -1,16 +1,17 @@
-import { Plus, Search, Anchor } from 'lucide-react';
+import { Search, Plus, Anchor, Settings } from 'lucide-react';
 
 interface HeaderProps {
   onAddClick: () => void;
   onCheckClick: () => void;
   onUploadClick: () => void;
+  onConversionsClick: () => void;
   onBackClick: () => void;
-  view: 'inventory' | 'check' | 'upload';
+  view: 'inventory' | 'check' | 'upload' | 'conversions';
   searchQuery: string;
   onSearchChange: (q: string) => void;
 }
 
-export function Header({ onAddClick, onCheckClick, onUploadClick, onBackClick, view, searchQuery, onSearchChange }: HeaderProps) {
+export function Header({ onAddClick, onCheckClick, onUploadClick, onConversionsClick, onBackClick, view, searchQuery, onSearchChange }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 backdrop-blur-md bg-[var(--color-bg)]/80 border-b border-[var(--color-border)] py-4 px-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div className="flex items-center gap-2">
@@ -33,7 +34,7 @@ export function Header({ onAddClick, onCheckClick, onUploadClick, onBackClick, v
             className="pl-10 pr-4 py-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text-main)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all w-full md:w-64"
           />
         </div>
-        {view === 'check' || view === 'upload' ? (
+        {view === 'check' || view === 'upload' || view === 'conversions' ? (
            <button
             onClick={onBackClick}
             className="flex items-center gap-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:bg-[var(--color-bg)] text-[var(--color-text-main)] px-4 py-2 rounded-lg font-medium transition-colors"
@@ -54,6 +55,14 @@ export function Header({ onAddClick, onCheckClick, onUploadClick, onBackClick, v
             >
               <span className="hidden sm:inline">Inventory Check</span>
             </button>
+            <button
+              onClick={onConversionsClick}
+              className="flex items-center gap-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:bg-[var(--color-bg)] text-[var(--color-text-main)] px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <Settings size={18} />
+              <span className="hidden sm:inline">Settings</span>
+            </button>
+            
             <button
               onClick={onAddClick}
               className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-[var(--color-primary)]/20"

@@ -9,6 +9,8 @@ export interface InventoryItem {
   currentStock: number;
   minThreshold: number;
   updatedAt: string;
+  altUnit?: string;
+  altUnitFactor?: number;
   lastCheckExpected?: number;
   lastCheckActual?: number;
   lastCheckVariance?: number;

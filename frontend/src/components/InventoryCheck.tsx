@@ -69,14 +69,16 @@ export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheck
                   <div key={item.id} className="flex items-center justify-between px-6 py-4 hover:bg-[var(--color-bg)]/50 transition-colors">
                     <div>
                       <h4 className="font-medium text-[var(--color-text-main)]">{item.name}</h4>
-                      <p className="text-sm text-[var(--color-text-muted)] mt-1">Current: {item.currentStock} {item.unit}</p>
+                      <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                        Current: {item.unit === 'kg' || item.unit === 'liter' ? Number(item.currentStock.toFixed(3)) : Math.round(item.currentStock)} {item.unit}
+                      </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-[var(--color-text-muted)]">Actual:</span>
                       <input
                         type="number"
                         min="0"
-                        placeholder={item.currentStock.toString()}
+                        placeholder={(item.unit === 'kg' || item.unit === 'liter' ? Number(item.currentStock.toFixed(3)) : Math.round(item.currentStock)).toString()}
                         value={actualQuantities[item.id] !== undefined ? actualQuantities[item.id] : ''}
                         onChange={(e) => handleInputChange(item.id, e.target.value)}
                         className="w-24 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-right"

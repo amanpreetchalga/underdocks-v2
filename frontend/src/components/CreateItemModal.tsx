@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +11,8 @@ const itemSchema = z.object({
   unit: z.enum(['kg', 'piece', 'liter']),
   currentStock: z.number().min(0, 'Must be 0 or more'),
   minThreshold: z.number().min(0, 'Must be 0 or more'),
+  altUnit: z.string().optional(),
+  altUnitFactor: z.number().min(0.0001, 'Must be positive').optional(),
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -19,9 +22,10 @@ interface CreateItemModalProps {
   onClose: () => void;
   onSubmit: (data: ItemFormValues) => void;
   isSubmitting: boolean;
+  initialData?: Partial<ItemFormValues>;
 }
 
-export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting }: CreateItemModalProps) {
+export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initialData }: CreateItemModalProps) {
   const {
     register,
     handleSubmit,
@@ -34,8 +38,23 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting }: Cre
       unit: 'kg',
       currentStock: 0,
       minThreshold: 10,
+      altUnit: '',
     },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      reset({
+        name: initialData?.name || '',
+        category: initialData?.category || 'fish',
+        unit: initialData?.unit || 'kg',
+        currentStock: initialData?.currentStock || 0,
+        minThreshold: initialData?.minThreshold || 10,
+        altUnit: initialData?.altUnit || '',
+        altUnitFactor: initialData?.altUnitFactor || undefined,
+      });
+    }
+  }, [isOpen, initialData, reset]);
 
   if (!isOpen) return null;
 
@@ -112,6 +131,32 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting }: Cre
                 className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
               />
               {errors.minThreshold && <p className="text-red-400 text-xs mt-1">{errors.minThreshold.message}</p>}
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--color-border)] pt-4 mt-2">
+            <h3 className="text-sm font-bold text-[var(--color-text-main)] mb-3">Weight Unit (Optional)</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Weight Unit Name</label>
+                <input
+                  {...register('altUnit')}
+                  placeholder="e.g. kg"
+                  className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Weight per Base Unit</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  {...register('altUnitFactor', { valueAsNumber: true })}
+                  placeholder="e.g. 0.0417"
+                  className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+                {errors.altUnitFactor && <p className="text-red-400 text-xs mt-1">{errors.altUnitFactor.message}</p>}
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">E.g., if 1 piece = 0.0417 kg, enter 0.0417.</p>
+              </div>
             </div>
           </div>
 

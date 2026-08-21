@@ -11,6 +11,8 @@ const itemSchema = z.object({
   unit: z.enum(['kg', 'piece', 'liter']),
   currentStock: z.number().min(0),
   minThreshold: z.number().min(0),
+  altUnit: z.string().optional(),
+  altUnitFactor: z.number().min(0.0001).optional(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {

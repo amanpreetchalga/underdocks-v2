@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header } from './components/Header';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -7,6 +7,7 @@ import { InventoryTable } from './components/InventoryTable';
 import { CreateItemModal } from './components/CreateItemModal';
 import { InventoryCheck } from './components/InventoryCheck';
 import { ReceiptUploader } from './components/ReceiptUploader';
+import { ConversionsSettings } from './components/ConversionsSettings';
 import { LayoutGrid, List } from 'lucide-react';
 import { useItems, useCreateItem, useUpdateStock, useDeleteItem, useCheckInventory, useParseReceipt } from './api/inventory';
 import type { ItemCategory } from './types/types';
@@ -17,9 +18,16 @@ function InventoryApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [view, setView] = useState<'inventory' | 'check' | 'upload'>('inventory');
+  const [view, setView] = useState<'inventory' | 'check' | 'upload' | 'conversions'>('inventory');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [unitView, setUnitView] = useState<'base' | 'alt'>(() => {
+    return (localStorage.getItem('underdocks_unit_view') as 'base' | 'alt') || 'base';
+  });
   const [isCheckSubmitting, setIsCheckSubmitting] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('underdocks_unit_view', unitView);
+  }, [unitView]);
 
   const { data: items, isLoading, error } = useItems();
   const createItem = useCreateItem();
@@ -31,8 +39,8 @@ function InventoryApp() {
   const filteredItems = useMemo(() => {
     if (!items) return [];
     return items.filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            item.id.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            (item.id || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -44,6 +52,7 @@ function InventoryApp() {
         onAddClick={() => setIsModalOpen(true)} 
         onCheckClick={() => setView('check')}
         onUploadClick={() => setView('upload')}
+        onConversionsClick={() => setView('conversions')}
         onBackClick={() => setView('inventory')}
         view={view}
         searchQuery={searchQuery}
@@ -85,12 +94,20 @@ function InventoryApp() {
               }
               
               try {
-                await Promise.all(matchedItems.map(item => 
-                  updateStock.mutateAsync({ 
+                await Promise.all(matchedItems.map(item => {
+                  const invItem = items?.find(i => i.id === item.itemId);
+                  let delta = item.quantity * item.qtyPerBox;
+                  
+                  // if receipt unit (item.unit) is kg, but base unit is piece, we must divide by altUnitFactor (kg per piece)
+                  if (invItem && invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
+                    delta = delta / invItem.altUnitFactor;
+                  }
+
+                  return updateStock.mutateAsync({ 
                     id: item.itemId as string, 
-                    delta: item.quantity * item.qtyPerBox 
-                  })
-                ));
+                    delta 
+                  });
+                }));
                 alert(`Successfully added ${matchedItems.length} items to inventory!`);
                 setView('inventory');
               } catch (err) {
@@ -99,6 +116,8 @@ function InventoryApp() {
               }
             }}
           />
+        ) : view === 'conversions' ? (
+          <ConversionsSettings />
         ) : (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -106,7 +125,31 @@ function InventoryApp() {
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
               />
-              <div className="flex items-center gap-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] p-1 rounded-lg self-start sm:self-auto">
+              <div className="flex items-center gap-4 self-start sm:self-auto">
+                <div className="flex items-center bg-[var(--color-bg-card)] border border-[var(--color-border)] p-1 rounded-lg">
+                  <button
+                    onClick={() => setUnitView('base')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      unitView === 'base'
+                        ? 'bg-[var(--color-bg)] text-[var(--color-primary)] shadow-sm'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-[var(--color-bg)]/50'
+                    }`}
+                  >
+                    Base Units
+                  </button>
+                  <button
+                    onClick={() => setUnitView('alt')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      unitView === 'alt'
+                        ? 'bg-[var(--color-bg)] text-[var(--color-primary)] shadow-sm'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-[var(--color-bg)]/50'
+                    }`}
+                  >
+                    Weight
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] p-1 rounded-lg">
                 <button
                   onClick={() => setLayoutMode('grid')}
                   className={`p-1.5 rounded-md transition-colors ${
@@ -129,6 +172,7 @@ function InventoryApp() {
                 >
                   <List size={18} />
                 </button>
+                </div>
               </div>
             </div>
 
@@ -154,7 +198,7 @@ function InventoryApp() {
               <InventoryCard 
                 key={item.id} 
                 item={item} 
-                onUpdateStock={(id, delta) => updateStock.mutate({ id, delta })}
+                unitView={unitView}
                 onDelete={(id) => deleteItem.mutate(id)}
               />
             ))}
@@ -162,6 +206,7 @@ function InventoryApp() {
         ) : (
           <InventoryTable
             items={filteredItems}
+            unitView={unitView}
             onUpdateStock={(id, delta) => updateStock.mutate({ id, delta })}
             onDelete={(id) => deleteItem.mutate(id)}
           />

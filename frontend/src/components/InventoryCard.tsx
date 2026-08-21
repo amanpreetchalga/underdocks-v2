@@ -3,12 +3,30 @@ import type { InventoryItem } from '../types/types';
 
 interface InventoryCardProps {
   item: InventoryItem;
-  onUpdateStock: (id: string, delta: number) => void;
+  unitView: 'base' | 'alt';
   onDelete: (id: string) => void;
 }
 
-export function InventoryCard({ item, onUpdateStock, onDelete }: InventoryCardProps) {
+export function InventoryCard({ item, unitView, onDelete }: InventoryCardProps) {
   const isLowStock = item.currentStock <= item.minThreshold;
+
+  const isAltView = unitView === 'alt' && !!item.altUnit && !!item.altUnitFactor;
+  const displayUnit = isAltView ? item.altUnit : item.unit;
+  const rawDisplayStock = isAltView ? item.currentStock * item.altUnitFactor! : item.currentStock;
+  
+  const displayStock = (displayUnit === 'kg' || displayUnit === 'liter')
+    ? Number(rawDisplayStock.toFixed(3))
+    : Math.round(rawDisplayStock);
+
+  const displayVariance = item.lastCheckVariance !== undefined 
+    ? (isAltView ? item.lastCheckVariance * item.altUnitFactor! : item.lastCheckVariance)
+    : undefined;
+    
+  const formattedVariance = displayVariance !== undefined 
+    ? (displayUnit === 'kg' || displayUnit === 'liter' ? Number(displayVariance.toFixed(3)) : Math.round(displayVariance))
+    : undefined;
+
+
 
   return (
     <div
@@ -61,10 +79,10 @@ export function InventoryCard({ item, onUpdateStock, onDelete }: InventoryCardPr
                 isLowStock ? 'text-red-400' : 'text-[var(--color-text-main)]'
               }`}
             >
-              {item.currentStock}
+              {displayStock}
             </span>
             <span className="text-sm text-[var(--color-text-muted)] font-medium">
-              {item.unit}
+              {displayUnit}
             </span>
           </div>
           {item.lastCheckVariance !== undefined && (
@@ -78,8 +96,8 @@ export function InventoryCard({ item, onUpdateStock, onDelete }: InventoryCardPr
                     : 'bg-gray-500/10 text-gray-400'
                 }`}
               >
-                {item.lastCheckVariance > 0 ? '+' : ''}
-                {item.lastCheckVariance} var.
+                {formattedVariance! > 0 ? '+' : ''}
+                {formattedVariance} {displayUnit} var.
               </span>
               {item.lastCheckDate && (
                 <span className="text-[10px] text-[var(--color-text-muted)]">
@@ -88,14 +106,6 @@ export function InventoryCard({ item, onUpdateStock, onDelete }: InventoryCardPr
               )}
             </div>
           )}
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-[var(--color-bg)] p-1 rounded-lg border border-[var(--color-border)]">
-          <StockButton onClick={() => onUpdateStock(item.id, -5)} label="-5" />
-          <StockButton onClick={() => onUpdateStock(item.id, -1)} label="-1" />
-          <div className="w-px h-6 bg-[var(--color-border)] mx-1" />
-          <StockButton onClick={() => onUpdateStock(item.id, 1)} label="+1" />
-          <StockButton onClick={() => onUpdateStock(item.id, 5)} label="+5" />
         </div>
       </div>
       
@@ -109,13 +119,4 @@ export function InventoryCard({ item, onUpdateStock, onDelete }: InventoryCardPr
   );
 }
 
-function StockButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-8 h-8 flex items-center justify-center rounded-md font-mono text-sm font-medium text-[var(--color-text-main)] hover:bg-[var(--color-border)] hover:text-[var(--color-primary)] transition-colors active:scale-95"
-    >
-      {label}
-    </button>
-  );
-}
+

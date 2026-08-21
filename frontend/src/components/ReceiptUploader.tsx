@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
-import { useItems } from '../api/inventory';
+import { useItems, useCreateItem } from '../api/inventory';
+import { saveMapping, getMapping } from '../lib/mappingMemory';
+import { CreateItemModal } from './CreateItemModal';
 
 interface ParsedItem {
   name: string;
@@ -22,6 +24,9 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: inventoryItems } = useItems();
+  const createItem = useCreateItem();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,7 +46,14 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
 
       try {
         const items = await onParse(base64);
-        setParsedItems(items);
+        
+        // Auto-map based on past memory
+        const mappedItems = items.map(item => {
+          const rememberedId = getMapping(item.name);
+          return rememberedId ? { ...item, itemId: rememberedId } : item;
+        });
+        
+        setParsedItems(mappedItems);
       } catch (err: any) {
         setError(err.message || 'Failed to parse receipt.');
       }
@@ -52,6 +64,13 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
 
   const handleItemChange = (index: number, field: keyof ParsedItem, value: string | number) => {
     if (!parsedItems) return;
+    
+    if (field === 'itemId' && value === 'new') {
+      setEditingIndex(index);
+      setIsModalOpen(true);
+      return;
+    }
+
     const newItems = [...parsedItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setParsedItems(newItems);
@@ -59,6 +78,12 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
 
   const handleConfirm = () => {
     if (parsedItems) {
+      // Save mappings for items that have an itemId selected
+      parsedItems.forEach(item => {
+        if (item.itemId) {
+          saveMapping(item.name, item.itemId);
+        }
+      });
       onConfirm(parsedItems);
     }
   };
@@ -164,6 +189,7 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
                             {inv.name} ({inv.unit})
                           </option>
                         ))}
+                        <option value="new">➕ Create New Item...</option>
                       </select>
                     </div>
                     <div className="w-20">
@@ -185,13 +211,37 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
                       />
                     </div>
                     <div className="w-20">
-                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Total</label>
-                      <input 
-                        type="number" 
-                        value={item.quantity * item.qtyPerBox} 
-                        disabled
-                        className="w-full bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-muted)] cursor-not-allowed"
-                      />
+                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Weight</label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          value={item.quantity * item.qtyPerBox} 
+                          disabled
+                          className="w-full bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-muted)] cursor-not-allowed"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-muted)]">{item.unit}</span>
+                      </div>
+                    </div>
+                    {/* Converted Base Unit Display */}
+                    <div className="w-24 border-l border-[var(--color-border)] pl-3 flex flex-col justify-end">
+                      {(() => {
+                        const invItem = inventoryItems?.find(i => i.id === item.itemId);
+                        if (!invItem) return null;
+                        
+                        let finalAmount = item.quantity * item.qtyPerBox;
+                        if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
+                          finalAmount = finalAmount / invItem.altUnitFactor;
+                        }
+                        
+                        return (
+                          <div className="mb-2">
+                            <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">Will Add</span>
+                            <span className="font-bold text-[var(--color-text-main)] text-sm">
+                              +{Math.round(finalAmount)} {invItem.unit}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))
@@ -213,6 +263,29 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
           </div>
         )}
       </div>
+
+      {editingIndex !== null && parsedItems && (
+        <CreateItemModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingIndex(null);
+          }}
+          isSubmitting={createItem.isPending}
+          initialData={{ name: parsedItems[editingIndex].name }}
+          onSubmit={(data) => {
+            createItem.mutate(data, {
+              onSuccess: (createdItem) => {
+                const newItems = [...parsedItems];
+                newItems[editingIndex].itemId = createdItem.id;
+                setParsedItems(newItems);
+                setIsModalOpen(false);
+                setEditingIndex(null);
+              },
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
