@@ -54,15 +54,27 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     for (const item of receiptItems) {
       const itemFields = item.properties || {};
       
-      const name = itemFields.Description?.content || 'Unknown Item';
+      let name = itemFields.Description?.content || 'Unknown Item';
       const quantityStr = itemFields.Quantity?.content || '1';
       const quantity = parseFloat(quantityStr.replace(/[^\d.]/g, '')) || 1;
+      
+      let qtyPerBox = 1;
+
+      // Check if the name starts with a weight, e.g., "5,260 kgLachs..." or "7.000 kg"
+      const weightMatch = name.match(/^([\d.,]+)\s*kg\s*/i);
+      if (weightMatch) {
+        // Replace comma with dot for JS float parsing
+        const weightStr = weightMatch[1].replace(',', '.');
+        qtyPerBox = parseFloat(weightStr) || 1;
+        // Remove the weight from the name to clean it up
+        name = name.replace(/^([\d.,]+)\s*kg\s*/i, '').trim();
+      }
 
       items.push({
         name,
         quantity,
-        qtyPerBox: 1,
-        unit: 'pc'
+        qtyPerBox,
+        unit: 'kg'
       });
     }
 
