@@ -11,6 +11,7 @@ interface PosUploaderProps {
 }
 
 export interface PosParsedItem {
+  id: string;
   originalName: string;
   quantity: number;
   priceStr: string;
@@ -148,6 +149,7 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
                 const multiplier = memoryMatch?.multiplier || 1;
 
                 extracted.push({
+                  id: `pos-${i}-${Math.random().toString(36).substr(2, 9)}`,
                   originalName,
                   quantity,
                   priceStr,
@@ -323,10 +325,10 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
           <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
             {displayItems.visible.map((item) => {
               // Find actual index in parsedItems to correctly update state
-              const actualIdx = parsedItems.findIndex(p => p.originalName === item.originalName);
+              const actualIdx = parsedItems.findIndex(p => p.id === item.id);
               
               return (
-                <div key={item.originalName} className={`flex flex-wrap md:flex-nowrap items-center gap-3 bg-[var(--color-bg)] p-3 rounded-xl border transition-colors ${item.isValuable ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary)]/5' : 'border-[var(--color-border)]'}`}>
+                <div key={item.id} className={`flex flex-wrap md:flex-nowrap items-center gap-3 bg-[var(--color-bg)] p-3 rounded-xl border transition-colors ${item.isValuable ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary)]/5' : 'border-[var(--color-border)]'}`}>
                   <div className="flex items-center gap-3 w-48 shrink-0">
                     <input 
                       type="checkbox"
@@ -400,9 +402,9 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
                 {showHidden && (
                   <div className="mt-4 space-y-3 opacity-70">
                     {displayItems.hidden.map((item) => {
-                      const actualIdx = parsedItems.findIndex(p => p.originalName === item.originalName);
+                      const actualIdx = parsedItems.findIndex(p => p.id === item.id);
                       return (
-                        <div key={item.originalName} className="flex flex-wrap md:flex-nowrap items-center gap-3 bg-[var(--color-bg)] p-3 rounded-xl border border-[var(--color-border)]">
+                        <div key={item.id} className="flex flex-wrap md:flex-nowrap items-center gap-3 bg-[var(--color-bg)] p-3 rounded-xl border border-[var(--color-border)]">
                           <div className="flex items-center gap-3 w-48 shrink-0">
                             <input 
                               type="checkbox"
