@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { UploadCloud, FileText, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { UploadCloud, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Papa from 'papaparse';
 import type { InventoryItem } from '../types/types';
 
