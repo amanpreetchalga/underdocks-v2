@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useItems, useUpdateItem } from '../api/inventory';
-import { Settings, Save, AlertCircle } from 'lucide-react';
+import { Settings, Save, AlertCircle, RotateCcw } from 'lucide-react';
 import type { InventoryItem } from '../types/types';
 
 export function ConversionsSettings() {
@@ -73,12 +73,42 @@ export function ConversionsSettings() {
     }
   };
 
+  const handleResetAllVariances = async () => {
+    if (!confirm('Are you sure you want to reset all variances to zero? This will remove all variance tracking from the dashboard.')) return;
+    
+    try {
+      const itemsWithVariance = items.filter(item => item.lastCheckVariance !== undefined);
+      if (itemsWithVariance.length === 0) {
+        alert('No variances to reset.');
+        return;
+      }
+      await Promise.all(itemsWithVariance.map(item => 
+        updateItem.mutateAsync({
+          id: item.id,
+          data: { resetVariance: true }
+        })
+      ));
+      alert('All variances have been reset successfully!');
+    } catch (err) {
+      alert('Failed to reset some variances.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-[var(--color-text-main)] mb-2 flex items-center gap-2">
-          <Settings className="text-[var(--color-primary)]" /> Unit Conversions & Settings
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+          <h2 className="text-xl font-bold text-[var(--color-text-main)] flex items-center gap-2">
+            <Settings className="text-[var(--color-primary)]" /> Unit Conversions & Settings
+          </h2>
+          <button
+            onClick={handleResetAllVariances}
+            disabled={updateItem.isPending}
+            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <RotateCcw size={16} /> Reset All Variances
+          </button>
+        </div>
         <p className="text-[var(--color-text-muted)] text-sm mb-6 max-w-3xl">
           Manage how the system translates receipt weights into base units for each item. 
           Use the "Example 1 Box" calculator to test out your conversion factor and ensure it's mathematically correct.

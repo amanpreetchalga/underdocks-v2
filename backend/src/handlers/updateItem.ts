@@ -8,6 +8,7 @@ const updateSchema = z.object({
   unit: z.enum(['kg', 'piece', 'liter']).optional(),
   altUnit: z.string().optional(),
   altUnitFactor: z.number().min(0.0001).optional().nullable(),
+  resetVariance: z.boolean().optional(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -42,6 +43,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     const data = validationResult.data;
     const updateExpressions: string[] = [];
+    const removeExpressions: string[] = [];
     const expressionAttributeNames: Record<string, string> = {};
     const expressionAttributeValues: Record<string, any> = {};
 
@@ -76,6 +78,15 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       hasUpdates = true;
     }
 
+    if (data.resetVariance) {
+      removeExpressions.push('#lastCheckVariance', '#lastCheckExpected', '#lastCheckActual', '#lastCheckDate');
+      expressionAttributeNames['#lastCheckVariance'] = 'lastCheckVariance';
+      expressionAttributeNames['#lastCheckExpected'] = 'lastCheckExpected';
+      expressionAttributeNames['#lastCheckActual'] = 'lastCheckActual';
+      expressionAttributeNames['#lastCheckDate'] = 'lastCheckDate';
+      hasUpdates = true;
+    }
+
     if (!hasUpdates) {
       return {
         statusCode: 400,
@@ -92,13 +103,18 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     expressionAttributeNames['#updatedAt'] = 'updatedAt';
     expressionAttributeValues[':updatedAt'] = new Date().toISOString();
 
+    let updateExpr = 'SET ' + updateExpressions.join(', ');
+    if (removeExpressions.length > 0) {
+      updateExpr += ' REMOVE ' + removeExpressions.join(', ');
+    }
+
     const command = new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { id },
-      UpdateExpression: 'SET ' + updateExpressions.join(', '),
+      UpdateExpression: updateExpr,
       ConditionExpression: 'attribute_exists(id)',
       ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: expressionAttributeValues,
+      ExpressionAttributeValues: Object.keys(expressionAttributeValues).length > 0 ? expressionAttributeValues : undefined,
       ReturnValues: 'ALL_NEW',
     });
 

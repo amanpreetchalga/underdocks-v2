@@ -98,7 +98,7 @@ export function useUpdateStock() {
 export function useUpdateItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Omit<InventoryItem, 'id' | 'currentStock' | 'lastCheckVariance' | 'lastCheckDate'>> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Omit<InventoryItem, 'id' | 'currentStock' | 'lastCheckVariance' | 'lastCheckDate'>> & { resetVariance?: boolean } }) => {
       const response = await fetch(`${API_URL}/items/${id}/details`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
