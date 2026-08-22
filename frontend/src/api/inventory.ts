@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InventoryItem } from '../types/types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000'; // Default SAM local endpoint
+const API_URL = import.meta.env.VITE_API_URL || '/api'; // Default SAM local endpoint via Vite proxy
 
 export const useItems = () => {
   return useQuery<InventoryItem[]>({
