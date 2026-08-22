@@ -7,6 +7,7 @@ interface PosUploaderProps {
   inventoryItems: InventoryItem[] | undefined;
   onConfirm: (items: PosParsedItem[]) => Promise<void>;
   isSubmitting: boolean;
+  onCreateNewItem?: (defaultName: string) => void;
 }
 
 export interface PosParsedItem {
@@ -15,9 +16,10 @@ export interface PosParsedItem {
   priceStr: string;
   isValuable: boolean;
   itemId?: string; // matched inventory ID
+  multiplier: number;
 }
 
-export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUploaderProps) {
+export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateNewItem }: PosUploaderProps) {
   const [parsedItems, setParsedItems] = useState<PosParsedItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
@@ -28,9 +30,38 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
   const [valuableMemory, setValuableMemory] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem('underdocks_pos_valuable') || '{}'); } catch { return {}; }
   });
-  const [matchMemory, setMatchMemory] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('underdocks_pos_matches') || '{}'); } catch { return {}; }
+  const [matchMemory, setMatchMemory] = useState<Record<string, { id: string, multiplier: number }>>(() => {
+    try { 
+      const raw = JSON.parse(localStorage.getItem('underdocks_pos_matches') || '{}'); 
+      const upgraded: Record<string, { id: string, multiplier: number }> = {};
+      for (const [key, value] of Object.entries(raw)) {
+        if (typeof value === 'string') {
+          upgraded[key] = { id: value as string, multiplier: 1 };
+        } else if (value && typeof value === 'object' && 'id' in (value as any)) {
+          upgraded[key] = value as { id: string, multiplier: number };
+        }
+      }
+      return upgraded;
+    } catch { return {}; }
   });
+
+  // Auto-match newly created inventory items if their name perfectly matches
+  useEffect(() => {
+    if (inventoryItems && parsedItems) {
+      let changed = false;
+      const newItems = parsedItems.map(item => {
+        if (!item.itemId && item.isValuable) {
+          const match = inventoryItems.find(i => i.name === item.originalName);
+          if (match) {
+            changed = true;
+            return { ...item, itemId: match.id };
+          }
+        }
+        return item;
+      });
+      if (changed) setParsedItems(newItems);
+    }
+  }, [inventoryItems]); // Only re-run when inventoryItems changes from a background refetch
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -112,14 +143,17 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
 
                 // Load from memory
                 const isValuable = valuableMemory[originalName] !== undefined ? valuableMemory[originalName] : priceStr !== '0,00';
-                const itemId = matchMemory[originalName] || '';
+                const memoryMatch = matchMemory[originalName];
+                const itemId = memoryMatch?.id || '';
+                const multiplier = memoryMatch?.multiplier || 1;
 
                 extracted.push({
                   originalName,
                   quantity,
                   priceStr,
                   isValuable,
-                  itemId
+                  itemId,
+                  multiplier
                 });
               }
 
@@ -184,7 +218,7 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
     parsedItems.forEach(item => {
       newValMap[item.originalName] = item.isValuable;
       if (item.itemId) {
-        newMatchMap[item.originalName] = item.itemId;
+        newMatchMap[item.originalName] = { id: item.itemId, multiplier: item.multiplier };
       }
     });
 
@@ -306,10 +340,17 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
                     </div>
                   </div>
                   
-                  <div className="flex-1 min-w-[200px]">
+                  <div className="flex-1 min-w-[150px]">
                     <select
                       value={item.itemId || ''}
-                      onChange={(e) => handleItemChange(actualIdx, 'itemId', e.target.value)}
+                      onChange={(e) => {
+                        if (e.target.value === 'new' && onCreateNewItem) {
+                          onCreateNewItem(item.originalName);
+                          handleItemChange(actualIdx, 'itemId', '');
+                        } else {
+                          handleItemChange(actualIdx, 'itemId', e.target.value);
+                        }
+                      }}
                       disabled={!item.isValuable}
                       className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
                     >
@@ -319,13 +360,27 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
                           {inv.name} ({inv.unit})
                         </option>
                       ))}
+                      <option value="new">➕ Create New Item...</option>
                     </select>
                   </div>
                   
+                  <div className="w-24 shrink-0">
+                    <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] block mb-1">Qty per Sale</label>
+                    <input 
+                      type="number"
+                      value={item.multiplier}
+                      onChange={(e) => handleItemChange(actualIdx, 'multiplier', parseFloat(e.target.value) || 1)}
+                      disabled={!item.isValuable}
+                      className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
+                      min="0.001"
+                      step="0.1"
+                    />
+                  </div>
+                  
                   <div className="w-24 shrink-0 text-right pr-2">
-                    <span className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] block mb-1">Sold Qty</span>
+                    <span className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] block mb-1">Total Sold</span>
                     <span className="font-mono text-sm font-bold text-red-500">
-                      -{item.quantity}
+                      -{Math.round(item.quantity * item.multiplier * 100) / 100}
                     </span>
                   </div>
                 </div>
@@ -361,10 +416,17 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
                             </div>
                           </div>
                           
-                          <div className="flex-1 min-w-[200px]">
+                          <div className="flex-1 min-w-[150px]">
                             <select
                               value={item.itemId || ''}
-                              onChange={(e) => handleItemChange(actualIdx, 'itemId', e.target.value)}
+                              onChange={(e) => {
+                                if (e.target.value === 'new' && onCreateNewItem) {
+                                  onCreateNewItem(item.originalName);
+                                  handleItemChange(actualIdx, 'itemId', '');
+                                } else {
+                                  handleItemChange(actualIdx, 'itemId', e.target.value);
+                                }
+                              }}
                               disabled={!item.isValuable}
                               className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
                             >
@@ -374,11 +436,26 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting }: PosUplo
                                   {inv.name}
                                 </option>
                               ))}
+                              <option value="new">➕ Create New Item...</option>
                             </select>
                           </div>
-                          <div className="w-24 shrink-0 text-right pr-2">
+                          
+                          <div className="w-24 shrink-0">
+                            <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] block mb-1">Qty per Sale</label>
+                            <input 
+                              type="number"
+                              value={item.multiplier}
+                              onChange={(e) => handleItemChange(actualIdx, 'multiplier', parseFloat(e.target.value) || 1)}
+                              disabled={!item.isValuable}
+                              className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
+                              min="0.001"
+                              step="0.1"
+                            />
+                          </div>
+
+                          <div className="w-24 shrink-0 text-right pr-2 flex flex-col justify-end">
                             <span className="font-mono text-sm font-bold text-[var(--color-text-muted)]">
-                              {item.quantity}
+                              -{Math.round(item.quantity * item.multiplier * 100) / 100}
                             </span>
                           </div>
                         </div>

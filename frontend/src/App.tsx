@@ -25,6 +25,7 @@ function InventoryApp() {
     return (localStorage.getItem('underdocks_unit_view') as 'base' | 'alt') || 'base';
   });
   const [isCheckSubmitting, setIsCheckSubmitting] = useState(false);
+  const [createItemInitialData, setCreateItemInitialData] = useState<{ name?: string, category?: string } | undefined>();
 
   useEffect(() => {
     localStorage.setItem('underdocks_unit_view', unitView);
@@ -122,6 +123,10 @@ function InventoryApp() {
           <PosUploader
             inventoryItems={items}
             isSubmitting={isCheckSubmitting}
+            onCreateNewItem={(defaultName) => {
+              setCreateItemInitialData({ name: defaultName });
+              setIsModalOpen(true);
+            }}
             onConfirm={async (parsedItems: PosParsedItem[]) => {
               setIsCheckSubmitting(true);
               try {
@@ -132,12 +137,12 @@ function InventoryApp() {
                   let delta = -item.quantity; // Negative delta for sales
                   
                   // if pos sold in pieces, but inventory base is kg
-                  // e.g., POS sold 2 tacos, inventory is in kg. We need altUnitFactor?
-                  // POS usually sells in pieces. So if invItem.unit is 'kg' and it has altUnitFactor,
-                  // we multiply delta by altUnitFactor. 1 piece sold * 0.05 kg/piece = 0.05 kg subtracted.
                   if (invItem && invItem.unit !== 'piece' && invItem.altUnit === 'piece' && invItem.altUnitFactor) {
                     delta = delta * invItem.altUnitFactor;
                   }
+                  
+                  // Apply multiplier (e.g., 2 pieces per sale)
+                  delta = delta * item.multiplier;
 
                   return updateStock.mutateAsync({ 
                     id: item.itemId, 
@@ -255,11 +260,18 @@ function InventoryApp() {
 
       <CreateItemModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        initialData={createItemInitialData as any}
+        onClose={() => {
+          setIsModalOpen(false);
+          setCreateItemInitialData(undefined);
+        }}
         isSubmitting={createItem.isPending}
         onSubmit={(data) => {
           createItem.mutate(data, {
-            onSuccess: () => setIsModalOpen(false),
+            onSuccess: () => {
+              setIsModalOpen(false);
+              setCreateItemInitialData(undefined);
+            },
           });
         }}
       />
