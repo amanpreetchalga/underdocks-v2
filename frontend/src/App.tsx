@@ -7,6 +7,7 @@ import { InventoryTable } from './components/InventoryTable';
 import { CreateItemModal } from './components/CreateItemModal';
 import { InventoryCheck } from './components/InventoryCheck';
 import { ReceiptUploader } from './components/ReceiptUploader';
+import { PosUploader, PosParsedItem } from './components/PosUploader';
 import { ConversionsSettings } from './components/ConversionsSettings';
 import { LayoutGrid, List } from 'lucide-react';
 import { useItems, useCreateItem, useUpdateStock, useDeleteItem, useCheckInventory, useParseReceipt } from './api/inventory';
@@ -18,7 +19,7 @@ function InventoryApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [view, setView] = useState<'inventory' | 'check' | 'upload' | 'conversions'>('inventory');
+  const [view, setView] = useState<'inventory' | 'check' | 'upload' | 'pos' | 'conversions'>('inventory');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
   const [unitView, setUnitView] = useState<'base' | 'alt'>(() => {
     return (localStorage.getItem('underdocks_unit_view') as 'base' | 'alt') || 'base';
@@ -52,6 +53,7 @@ function InventoryApp() {
         onAddClick={() => setIsModalOpen(true)} 
         onCheckClick={() => setView('check')}
         onUploadClick={() => setView('upload')}
+        onPosClick={() => setView('pos')}
         onConversionsClick={() => setView('conversions')}
         onBackClick={() => setView('inventory')}
         view={view}
@@ -113,6 +115,42 @@ function InventoryApp() {
               } catch (err) {
                 console.error("Failed to add receipt items to inventory", err);
                 alert("Failed to update inventory. Please try again.");
+              }
+            }}
+          />
+        ) : view === 'pos' ? (
+          <PosUploader
+            inventoryItems={items}
+            isSubmitting={isCheckSubmitting}
+            onConfirm={async (parsedItems: PosParsedItem[]) => {
+              setIsCheckSubmitting(true);
+              try {
+                await Promise.all(parsedItems.map(item => {
+                  if (!item.itemId) return Promise.resolve();
+                  
+                  const invItem = items?.find(i => i.id === item.itemId);
+                  let delta = -item.quantity; // Negative delta for sales
+                  
+                  // if pos sold in pieces, but inventory base is kg
+                  // e.g., POS sold 2 tacos, inventory is in kg. We need altUnitFactor?
+                  // POS usually sells in pieces. So if invItem.unit is 'kg' and it has altUnitFactor,
+                  // we multiply delta by altUnitFactor. 1 piece sold * 0.05 kg/piece = 0.05 kg subtracted.
+                  if (invItem && invItem.unit !== 'piece' && invItem.altUnit === 'piece' && invItem.altUnitFactor) {
+                    delta = delta * invItem.altUnitFactor;
+                  }
+
+                  return updateStock.mutateAsync({ 
+                    id: item.itemId, 
+                    delta 
+                  });
+                }));
+                alert(`Successfully deducted ${parsedItems.length} items from inventory!`);
+                setView('inventory');
+              } catch (err) {
+                console.error("Failed to deduct POS items from inventory", err);
+                alert("Failed to update inventory. Please try again.");
+              } finally {
+                setIsCheckSubmitting(false);
               }
             }}
           />
