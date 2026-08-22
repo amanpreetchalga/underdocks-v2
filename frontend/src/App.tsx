@@ -7,7 +7,7 @@ import { InventoryTable } from './components/InventoryTable';
 import { CreateItemModal } from './components/CreateItemModal';
 import { InventoryCheck } from './components/InventoryCheck';
 import { ReceiptUploader } from './components/ReceiptUploader';
-import { PosUploader, PosParsedItem } from './components/PosUploader';
+import { PosUploader, type PosParsedItem } from './components/PosUploader';
 import { ConversionsSettings } from './components/ConversionsSettings';
 import { LayoutGrid, List } from 'lucide-react';
 import { useItems, useCreateItem, useUpdateStock, useDeleteItem, useCheckInventory, useParseReceipt } from './api/inventory';
