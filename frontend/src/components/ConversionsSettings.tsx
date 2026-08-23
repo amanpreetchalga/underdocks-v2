@@ -211,7 +211,6 @@ export function ConversionsSettings() {
                           <span className="text-xs font-bold text-[var(--color-primary)]/80 ml-1">{weightUnitStr || 'kg'}</span>
                         </div>
                       </div>
-                      </div>
                     </div>
                   )}
                 </div>
