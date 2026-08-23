@@ -121,8 +121,12 @@ export function ConversionsSettings() {
             const currentAltUnit = item.altUnit || 'kg';
             const currentFactor = isEditing ? edits[item.id].altUnitFactor : (item.altUnitFactor || null);
             
-            const exampleWeight = exampleWeights[item.id] ?? 10;
-            const examplePieces = currentFactor ? (exampleWeight / currentFactor) : 0;
+            const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(currentUnit.toLowerCase());
+            const weightUnitStr = primaryIsWeight ? currentUnit : currentAltUnit;
+            const piecesUnitStr = primaryIsWeight ? currentAltUnit : currentUnit;
+            
+            const inputPieces = exampleWeights[item.id] ?? 100;
+            const computedWeightOut = currentFactor ? (inputPieces * currentFactor) : 0;
             
             return (
               <div key={item.id} className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-5 flex flex-col md:flex-row gap-6 hover:border-[var(--color-primary)]/30 transition-colors">
@@ -149,7 +153,7 @@ export function ConversionsSettings() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Weight per Base Unit</label>
+                      <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Weight of 1 piece</label>
                       <input
                         type="number"
                         step="0.0001"
@@ -186,16 +190,16 @@ export function ConversionsSettings() {
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-[var(--color-text-muted)] font-medium">If 1 box is:</span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-medium">If 1 box has:</span>
                         <div className="flex items-center bg-[var(--color-bg)] border border-[var(--color-border)] rounded overflow-hidden">
                           <input 
                             type="number" 
-                            value={exampleWeight}
+                            value={inputPieces}
                             onChange={(e) => setExampleWeights(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
                             className="w-16 bg-transparent px-2 py-1 text-sm text-[var(--color-text-main)] outline-none text-right font-mono focus:bg-[var(--color-bg-card)]"
                           />
-                          <span className="px-2 py-1 text-xs font-bold text-[var(--color-text-muted)] bg-[var(--color-bg-card)] border-l border-[var(--color-border)]">
-                            {currentAltUnit}
+                          <span className="px-2 py-1 text-xs font-bold text-[var(--color-text-muted)] bg-[var(--color-bg-card)] border-l border-[var(--color-border)] truncate max-w-[80px]">
+                            {piecesUnitStr || 'Pieces'}
                           </span>
                         </div>
                       </div>
@@ -203,9 +207,10 @@ export function ConversionsSettings() {
                       <div className="flex items-center justify-between bg-[var(--color-primary)]/10 px-3 py-2.5 rounded border border-[var(--color-primary)]/20">
                         <span className="text-xs font-medium text-[var(--color-text-main)]">Translates to:</span>
                         <div className="text-right">
-                          <span className="font-bold text-[var(--color-primary)] font-mono text-lg leading-none">{examplePieces.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>
-                          <span className="text-xs font-bold text-[var(--color-primary)]/80 ml-1">{currentUnit}</span>
+                          <span className="font-bold text-[var(--color-primary)] font-mono text-lg leading-none">{computedWeightOut.toLocaleString(undefined, { maximumFractionDigits: 3 })}</span>
+                          <span className="text-xs font-bold text-[var(--color-primary)]/80 ml-1">{weightUnitStr || 'kg'}</span>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
