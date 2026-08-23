@@ -29,6 +29,7 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     reset,
   } = useForm<ItemFormValues>({
@@ -41,6 +42,9 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
       altUnit: '',
     },
   });
+
+  const category = watch('category');
+  const showBaseUnit = category !== 'drinks' && category !== 'breads';
 
   useEffect(() => {
     if (isOpen) {
@@ -134,31 +138,33 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
             </div>
           </div>
 
-          <div className="border-t border-[var(--color-border)] pt-4 mt-2">
-            <h3 className="text-sm font-bold text-[var(--color-text-main)] mb-3">Weight Unit (Optional)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Weight Unit Name</label>
-                <input
-                  {...register('altUnit')}
-                  placeholder="e.g. kg"
-                  className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Weight per Base Unit</label>
-                <input
-                  type="number"
-                  step="0.000001"
-                  {...register('altUnitFactor', { valueAsNumber: true })}
-                  placeholder="e.g. 0.0417"
-                  className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
-                {errors.altUnitFactor && <p className="text-red-400 text-xs mt-1">{errors.altUnitFactor.message}</p>}
-                <p className="text-xs text-[var(--color-text-muted)] mt-1">E.g., if 1 piece = 0.0417 kg, enter 0.0417.</p>
+          {showBaseUnit && (
+            <div className="border-t border-[var(--color-border)] pt-4 mt-2">
+              <h3 className="text-sm font-bold text-[var(--color-text-main)] mb-3">Base Unit (Optional)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Base Unit Name</label>
+                  <input
+                    {...register('altUnit')}
+                    placeholder="e.g. Pieces"
+                    className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Weight of 1 piece</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    {...register('altUnitFactor', { setValueAs: (v) => v === "" ? undefined : parseFloat(v) })}
+                    placeholder="e.g. 0.0417"
+                    className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  {errors.altUnitFactor && <p className="text-red-400 text-xs mt-1">{errors.altUnitFactor.message}</p>}
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">E.g., if 1 piece = 0.0417 kg, enter 0.0417.</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-6 flex justify-end gap-3">
             <button
