@@ -71,21 +71,27 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
           {sortedItems.map((item) => {
             const isLowStock = item.currentStock <= item.minThreshold;
 
-            const isAltView = unitView === 'alt' && !!item.altUnit && !!item.altUnitFactor;
-            const displayUnit = isAltView ? item.altUnit : item.unit;
-            const rawDisplayStock = isAltView ? item.currentStock * item.altUnitFactor! : item.currentStock;
+            const isWeightView = unitView === 'alt';
+            const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(item.unit.toLowerCase());
+            
+            let displayUnit = item.unit;
+            let rawDisplayStock = item.currentStock;
+
+            if (isWeightView) {
+              if (!primaryIsWeight && item.altUnit && item.altUnitFactor) {
+                displayUnit = item.altUnit;
+                rawDisplayStock = item.currentStock * item.altUnitFactor;
+              }
+            } else {
+              if (primaryIsWeight && item.altUnit && item.altUnitFactor) {
+                displayUnit = item.altUnit;
+                rawDisplayStock = item.currentStock / item.altUnitFactor;
+              }
+            }
             
             const displayStock = (displayUnit === 'kg' || displayUnit === 'liter')
               ? Number(rawDisplayStock.toFixed(3))
               : Math.round(rawDisplayStock);
-
-            const handleUpdateStock = (displayDelta: number) => {
-              let baseDelta = displayDelta;
-              if (isAltView) {
-                baseDelta = displayDelta / item.altUnitFactor!;
-              }
-              onUpdateStock(item.id, baseDelta);
-            };
 
             return (
               <tr key={item.id} className="hover:bg-[var(--color-bg)]/30 transition-colors group">
@@ -152,14 +158,6 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
 
                 <td className="px-6 py-4">
                   <div className="flex items-center justify-end gap-4">
-                    <div className="flex items-center gap-1 bg-[var(--color-bg)] p-1 rounded-lg border border-[var(--color-border)]">
-                      <StockButton onClick={() => handleUpdateStock(-5)} label="-5" />
-                      <StockButton onClick={() => handleUpdateStock(-1)} label="-1" />
-                      <div className="w-px h-5 bg-[var(--color-border)] mx-0.5" />
-                      <StockButton onClick={() => handleUpdateStock(1)} label="+1" />
-                      <StockButton onClick={() => handleUpdateStock(5)} label="+5" />
-                    </div>
-                    
                     <button
                       onClick={() => {
                         if (window.confirm(`Are you sure you want to delete ${item.name}?`)) {

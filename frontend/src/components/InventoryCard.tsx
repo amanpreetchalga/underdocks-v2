@@ -10,17 +10,30 @@ interface InventoryCardProps {
 export function InventoryCard({ item, unitView, onDelete }: InventoryCardProps) {
   const isLowStock = item.currentStock <= item.minThreshold;
 
-  const isAltView = unitView === 'alt' && !!item.altUnit && !!item.altUnitFactor;
-  const displayUnit = isAltView ? item.altUnit : item.unit;
-  const rawDisplayStock = isAltView ? item.currentStock * item.altUnitFactor! : item.currentStock;
+  const isWeightView = unitView === 'alt';
+  const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(item.unit.toLowerCase());
   
+  let displayUnit = item.unit;
+  let rawDisplayStock = item.currentStock;
+  let displayVariance = item.lastCheckVariance;
+
+  if (isWeightView) {
+    if (!primaryIsWeight && item.altUnit && item.altUnitFactor) {
+      displayUnit = item.altUnit;
+      rawDisplayStock = item.currentStock * item.altUnitFactor;
+      if (displayVariance !== undefined) displayVariance = displayVariance * item.altUnitFactor;
+    }
+  } else {
+    if (primaryIsWeight && item.altUnit && item.altUnitFactor) {
+      displayUnit = item.altUnit;
+      rawDisplayStock = item.currentStock / item.altUnitFactor;
+      if (displayVariance !== undefined) displayVariance = displayVariance / item.altUnitFactor;
+    }
+  }
+
   const displayStock = (displayUnit === 'kg' || displayUnit === 'liter')
     ? Number(rawDisplayStock.toFixed(3))
     : Math.round(rawDisplayStock);
-
-  const displayVariance = item.lastCheckVariance !== undefined 
-    ? (isAltView ? item.lastCheckVariance * item.altUnitFactor! : item.lastCheckVariance)
-    : undefined;
     
   const formattedVariance = displayVariance !== undefined 
     ? (displayUnit === 'kg' || displayUnit === 'liter' ? Number(displayVariance.toFixed(3)) : Math.round(displayVariance))
