@@ -130,24 +130,36 @@ function InventoryApp() {
             onConfirm={async (parsedItems: PosParsedItem[]) => {
               setIsCheckSubmitting(true);
               try {
-                await Promise.all(parsedItems.map(item => {
-                  if (!item.itemId) return Promise.resolve();
+                await Promise.all(parsedItems.flatMap(item => {
+                  if (!item.itemId) return [];
                   
                   const invItem = items?.find(i => i.id === item.itemId);
+                  if (!invItem) return [];
+
+                  if (invItem.category === 'selling_unit' && invItem.ingredients) {
+                    return invItem.ingredients.map(ing => {
+                      const ingDelta = -(item.quantity * item.multiplier * ing.quantity);
+                      return updateStock.mutateAsync({
+                        id: ing.itemId,
+                        delta: ingDelta
+                      });
+                    });
+                  }
+
                   let delta = -item.quantity; // Negative delta for sales
                   
                   // if pos sold in pieces, but inventory base is kg
-                  if (invItem && invItem.unit !== 'piece' && invItem.altUnit === 'piece' && invItem.altUnitFactor) {
+                  if (invItem.unit !== 'piece' && invItem.altUnit === 'piece' && invItem.altUnitFactor) {
                     delta = delta * invItem.altUnitFactor;
                   }
                   
                   // Apply multiplier (e.g., 2 pieces per sale)
                   delta = delta * item.multiplier;
 
-                  return updateStock.mutateAsync({ 
+                  return [updateStock.mutateAsync({ 
                     id: item.itemId, 
                     delta 
-                  });
+                  })];
                 }));
                 alert(`Successfully deducted ${parsedItems.length} items from inventory!`);
                 setView('inventory');

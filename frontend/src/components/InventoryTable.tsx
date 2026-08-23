@@ -69,7 +69,7 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
           {sortedItems.map((item) => {
-            const isLowStock = item.currentStock <= item.minThreshold;
+            const isLowStock = item.category !== 'selling_unit' && item.currentStock <= item.minThreshold;
 
             const isWeightView = unitView === 'alt';
             const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(item.unit.toLowerCase());
@@ -93,6 +93,8 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
               ? Number(rawDisplayStock.toFixed(3))
               : Math.round(rawDisplayStock);
 
+            const displayCategory = item.category === 'selling_unit' ? 'Selling Unit' : item.category;
+
             return (
               <tr key={item.id} className="hover:bg-[var(--color-bg)]/30 transition-colors group">
                 <td className="px-6 py-4">
@@ -110,24 +112,30 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
                 </td>
                 
                 <td className="px-6 py-4">
-                  <span className="capitalize text-sm text-[var(--color-text-muted)]">{item.category}</span>
+                  <span className="capitalize text-sm text-[var(--color-text-muted)]">{displayCategory}</span>
                 </td>
 
                 <td className="px-6 py-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-xl font-bold font-mono tracking-tight ${isLowStock ? 'text-red-400' : 'text-[var(--color-text-main)]'}`}>
-                      {displayStock}
-                    </span>
-                    <span className="text-xs text-[var(--color-text-muted)] font-medium">
-                      {displayUnit}
-                    </span>
-                  </div>
-                  <div className="w-24 h-1 bg-[var(--color-border)] rounded-full overflow-hidden mt-1.5">
-                    <div 
-                      className={`h-full transition-all duration-500 ${isLowStock ? 'bg-red-500' : 'bg-[var(--color-primary)]'}`}
-                      style={{ width: `${Math.min(100, (item.currentStock / Math.max(1, item.minThreshold * 2)) * 100)}%` }}
-                    />
-                  </div>
+                  {item.category === 'selling_unit' ? (
+                    <span className="text-sm font-medium text-[var(--color-text-muted)] italic">Recipe</span>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-xl font-bold font-mono tracking-tight ${isLowStock ? 'text-red-400' : 'text-[var(--color-text-main)]'}`}>
+                          {displayStock}
+                        </span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-medium">
+                          {displayUnit}
+                        </span>
+                      </div>
+                      <div className="w-24 h-1 bg-[var(--color-border)] rounded-full overflow-hidden mt-1.5">
+                        <div 
+                          className={`h-full transition-all duration-500 ${isLowStock ? 'bg-red-500' : 'bg-[var(--color-primary)]'}`}
+                          style={{ width: `${Math.min(100, (item.currentStock / Math.max(1, item.minThreshold * 2)) * 100)}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </td>
 
                 <td className="px-6 py-4">

@@ -229,16 +229,28 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
                         if (!invItem) return null;
                         
                         let finalAmount = item.quantity * item.qtyPerBox;
+                        let computedPieces: number | null = null;
+                        
+                        // If the parsed unit matches the alt unit, convert to main unit
                         if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
                           finalAmount = finalAmount / invItem.altUnitFactor;
+                        } 
+                        // If the parsed unit matches the main unit, but an alt unit (Base Unit) is defined, compute pieces
+                        else if (invItem.unit === item.unit && invItem.altUnit && invItem.altUnitFactor) {
+                          computedPieces = finalAmount / invItem.altUnitFactor;
                         }
                         
                         return (
-                          <div className="mb-2">
+                          <div className="mb-2 text-right">
                             <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">Will Add</span>
                             <span className="font-bold text-[var(--color-text-main)] text-sm">
-                              +{Math.round(finalAmount)} {invItem.unit}
+                              +{Math.round(finalAmount * 100) / 100} {invItem.unit}
                             </span>
+                            {computedPieces !== null && (
+                              <span className="block text-xs font-bold text-green-400 mt-1">
+                                ~{Math.round(computedPieces)} {invItem.altUnit}
+                              </span>
+                            )}
                           </div>
                         );
                       })()}

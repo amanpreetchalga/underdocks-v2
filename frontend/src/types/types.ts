@@ -1,5 +1,10 @@
-export type ItemCategory = 'fish' | 'drinks' | 'sauces' | 'breads';
+export type ItemCategory = 'fish' | 'drinks' | 'sauces' | 'breads' | 'selling_unit';
 export type UnitType = 'kg' | 'piece' | 'liter';
+
+export interface Ingredient {
+  itemId: string;
+  quantity: number;
+}
 
 export interface InventoryItem {
   id: string;
@@ -15,6 +20,7 @@ export interface InventoryItem {
   lastCheckActual?: number;
   lastCheckVariance?: number;
   lastCheckDate?: string;
+  ingredients?: Ingredient[];
 }
 
 export interface StockUpdateInput {

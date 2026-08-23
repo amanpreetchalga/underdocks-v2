@@ -7,12 +7,16 @@ import { randomUUID } from 'crypto';
 
 const itemSchema = z.object({
   name: z.string().min(1),
-  category: z.enum(['fish', 'drinks', 'sauces', 'breads']),
+  category: z.enum(['fish', 'drinks', 'sauces', 'breads', 'selling_unit']),
   unit: z.enum(['kg', 'piece', 'liter']),
   currentStock: z.number().min(0),
   minThreshold: z.number().min(0),
   altUnit: z.string().optional(),
   altUnitFactor: z.number().min(0.0001).optional(),
+  ingredients: z.array(z.object({
+    itemId: z.string(),
+    quantity: z.number().min(0.0001)
+  })).optional(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {

@@ -5,10 +5,15 @@ import { ddbDocClient, TABLE_NAME } from '../lib/ddb';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
+  category: z.enum(['fish', 'drinks', 'sauces', 'breads', 'selling_unit']).optional(),
   unit: z.enum(['kg', 'piece', 'liter']).optional(),
   altUnit: z.string().optional(),
   altUnitFactor: z.number().min(0.0001).optional().nullable(),
   resetVariance: z.boolean().optional(),
+  ingredients: z.array(z.object({
+    itemId: z.string(),
+    quantity: z.number().min(0.0001)
+  })).optional(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -56,6 +61,20 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       hasUpdates = true;
     }
     
+    if (data.category !== undefined) {
+      updateExpressions.push('#category = :category');
+      expressionAttributeNames['#category'] = 'category';
+      expressionAttributeValues[':category'] = data.category;
+      hasUpdates = true;
+    }
+
+    if (data.ingredients !== undefined) {
+      updateExpressions.push('#ingredients = :ingredients');
+      expressionAttributeNames['#ingredients'] = 'ingredients';
+      expressionAttributeValues[':ingredients'] = data.ingredients;
+      hasUpdates = true;
+    }
+
     if (data.unit !== undefined) {
       updateExpressions.push('#unit = :unit');
       expressionAttributeNames['#unit'] = 'unit';
