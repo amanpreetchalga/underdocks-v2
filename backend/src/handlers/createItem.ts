@@ -33,6 +33,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     const validationResult = itemSchema.safeParse(parsedBody);
 
     if (!validationResult.success) {
+      console.error('Validation failed:', JSON.stringify(validationResult.error.errors, null, 2));
       return {
         statusCode: 400,
         headers: {

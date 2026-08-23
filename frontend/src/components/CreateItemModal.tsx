@@ -83,7 +83,6 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
       data.ingredients = undefined;
     }
     onSubmit(data);
-    reset();
   };
 
   return (

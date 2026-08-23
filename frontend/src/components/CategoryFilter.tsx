@@ -11,6 +11,7 @@ const CATEGORIES: { value: ItemCategory | 'all'; label: string }[] = [
   { value: 'drinks', label: '🥤 Drinks' },
   { value: 'sauces', label: '🥣 Sauces' },
   { value: 'breads', label: '🥖 Breads' },
+  { value: 'selling_unit', label: '🍽️ Recipes' },
 ];
 
 export function CategoryFilter({ selectedCategory, onSelectCategory }: CategoryFilterProps) {
