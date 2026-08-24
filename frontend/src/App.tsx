@@ -7,11 +7,12 @@ import { InventoryTable } from './components/InventoryTable';
 import { CreateItemModal } from './components/CreateItemModal';
 import { InventoryCheck } from './components/InventoryCheck';
 import { ReceiptUploader } from './components/ReceiptUploader';
-import { PosUploader, type PosParsedItem } from './components/PosUploader';
-import { ConversionsSettings } from './components/ConversionsSettings';
+import { PosUploader } from './components/PosUploader';
+import { Settings } from './components/Settings';
+import { SalesPage } from './components/SalesPage';
 import { LayoutGrid, List } from 'lucide-react';
-import { useItems, useCreateItem, useUpdateStock, useDeleteItem, useCheckInventory, useParseReceipt } from './api/inventory';
-import type { ItemCategory } from './types/types';
+import { useItems, useCreateItem, useUpdateItem, useDeleteItem, useParseReceipt, useSettings, useBatchUpdateStock, useBatchCheckInventory, useSales, useSaveSale } from './api/inventory';
+import type { ItemCategory, PosParsedItem } from './types/types';
 
 const queryClient = new QueryClient();
 
@@ -19,24 +20,29 @@ function InventoryApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [view, setView] = useState<'inventory' | 'check' | 'upload' | 'pos' | 'conversions'>('inventory');
+  const [view, setView] = useState<'inventory' | 'check' | 'upload' | 'pos' | 'conversions' | 'sales'>('inventory');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
   const [unitView, setUnitView] = useState<'base' | 'alt'>(() => {
     return (localStorage.getItem('underdocks_unit_view') as 'base' | 'alt') || 'base';
   });
   const [isCheckSubmitting, setIsCheckSubmitting] = useState(false);
-  const [createItemInitialData, setCreateItemInitialData] = useState<{ name?: string, category?: string } | undefined>();
+  const [createItemInitialData, setCreateItemInitialData] = useState<{ id?: string, name?: string, category?: string } | undefined>();
 
   useEffect(() => {
     localStorage.setItem('underdocks_unit_view', unitView);
   }, [unitView]);
 
-  const { data: items, isLoading, error } = useItems();
+  const { data: items, isLoading: itemsLoading, error } = useItems();
+  const { data: settings, isLoading: settingsLoading } = useSettings();
+  const { data: sales, isLoading: salesLoading } = useSales();
+  const isLoading = itemsLoading || settingsLoading || salesLoading;
   const createItem = useCreateItem();
-  const updateStock = useUpdateStock();
+  const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
-  const checkInventory = useCheckInventory();
   const parseReceipt = useParseReceipt();
+  const batchUpdateStock = useBatchUpdateStock();
+  const batchCheckInventory = useBatchCheckInventory();
+  const saveSale = useSaveSale();
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -63,19 +69,17 @@ function InventoryApp() {
       />
       
       <main className="max-w-7xl mx-auto w-full px-6 py-8">
-        {view === 'check' && items ? (
+        {view === 'check' ? (
           <InventoryCheck 
-            items={items} 
+            items={items || []} 
             isSubmitting={isCheckSubmitting}
+            categories={settings?.categories || []}
             onSubmit={async (updates) => {
               setIsCheckSubmitting(true);
               try {
-                // updates here currently have { id, delta } from previous implementation
-                // We should change InventoryCheck.tsx to emit { id, actual } instead of delta.
-                // Wait, InventoryCheck emits updates: { id, delta } 
-                // Let's assume we map delta back to actual inside InventoryCheck or App.tsx. 
-                // Actually, I'll update InventoryCheck as well next. For now, we will pass actual from InventoryCheck.
-                await Promise.all(updates.map(update => checkInventory.mutateAsync(update as any)));
+                if (updates.length > 0) {
+                  await batchCheckInventory.mutateAsync(updates as any);
+                }
                 setView('inventory');
               } catch (err) {
                 console.error("Failed to apply inventory check updates", err);
@@ -88,6 +92,7 @@ function InventoryApp() {
         ) : view === 'upload' ? (
           <ReceiptUploader
             isParsing={parseReceipt.isPending}
+            categories={settings?.categories || []}
             onParse={(base64) => parseReceipt.mutateAsync(base64)}
             onConfirm={async (parsedItems) => {
               const matchedItems = parsedItems.filter(i => i.itemId);
@@ -97,20 +102,26 @@ function InventoryApp() {
               }
               
               try {
-                await Promise.all(matchedItems.map(item => {
+                const batchUpdates: { id: string; delta: number }[] = [];
+                matchedItems.forEach(item => {
                   const invItem = items?.find(i => i.id === item.itemId);
+                  if (!invItem) return;
+
                   let delta = item.quantity * item.qtyPerBox;
-                  
-                  // if receipt unit (item.unit) is kg, but base unit is piece, we must divide by altUnitFactor (kg per piece)
                   if (invItem && invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
                     delta = delta / invItem.altUnitFactor;
                   }
 
-                  return updateStock.mutateAsync({ 
-                    id: item.itemId as string, 
-                    delta 
+                  batchUpdates.push({
+                    id: item.itemId as string,
+                    delta
                   });
-                }));
+                });
+                
+                if (batchUpdates.length > 0) {
+                  await batchUpdateStock.mutateAsync(batchUpdates);
+                }
+                
                 alert(`Successfully added ${matchedItems.length} items to inventory!`);
                 setView('inventory');
               } catch (err) {
@@ -127,42 +138,60 @@ function InventoryApp() {
               setCreateItemInitialData({ name: defaultName });
               setIsModalOpen(true);
             }}
-            onConfirm={async (parsedItems: PosParsedItem[]) => {
+            onConfirm={async (parsedItems: PosParsedItem[], reportDate: string) => {
               setIsCheckSubmitting(true);
               try {
-                await Promise.all(parsedItems.flatMap(item => {
-                  if (!item.itemId) return [];
+                const batchUpdates: { id: string; delta: number }[] = [];
+                parsedItems.forEach(item => {
+                  if (!item.itemId) return;
                   
                   const invItem = items?.find(i => i.id === item.itemId);
-                  if (!invItem) return [];
+                  if (!invItem) return;
 
                   if (invItem.category === 'selling_unit' && invItem.ingredients) {
-                    return invItem.ingredients.map(ing => {
-                      const ingDelta = -(item.quantity * item.multiplier * ing.quantity);
-                      return updateStock.mutateAsync({
+                    invItem.ingredients.forEach(ing => {
+                      const ingredientItem = items?.find(i => i.id === ing.itemId);
+                      let ingDelta = -(item.quantity * item.multiplier * ing.quantity);
+                      
+                      // Convert pieces to kg if the ingredient tracks inventory in kg
+                      if (ingredientItem && ingredientItem.unit !== 'piece' && ingredientItem.altUnit?.toLowerCase().includes('piece') && ingredientItem.altUnitFactor) {
+                        ingDelta = ingDelta * ingredientItem.altUnitFactor;
+                      }
+
+                      batchUpdates.push({
                         id: ing.itemId,
                         delta: ingDelta
                       });
                     });
+                    return;
                   }
 
-                  let delta = -item.quantity; // Negative delta for sales
+                  let delta = -item.quantity;
                   
-                  // if pos sold in pieces, but inventory base is kg
-                  if (invItem.unit !== 'piece' && invItem.altUnit === 'piece' && invItem.altUnitFactor) {
+                  if (invItem.unit !== 'piece' && invItem.altUnit?.toLowerCase().includes('piece') && invItem.altUnitFactor) {
                     delta = delta * invItem.altUnitFactor;
                   }
                   
-                  // Apply multiplier (e.g., 2 pieces per sale)
                   delta = delta * item.multiplier;
 
-                  return [updateStock.mutateAsync({ 
+                  batchUpdates.push({ 
                     id: item.itemId, 
                     delta 
-                  })];
-                }));
-                alert(`Successfully deducted ${parsedItems.length} items from inventory!`);
-                setView('inventory');
+                  });
+                });
+                
+                if (batchUpdates.length > 0) {
+                  await batchUpdateStock.mutateAsync(batchUpdates);
+                }
+
+                // Save the receipt
+                await saveSale.mutateAsync({
+                  date: reportDate,
+                  items: parsedItems
+                });
+                
+                alert(`Successfully deducted ${parsedItems.length} items from inventory and saved the receipt!`);
+                setView('sales');
               } catch (err) {
                 console.error("Failed to deduct POS items from inventory", err);
                 alert("Failed to update inventory. Please try again.");
@@ -171,14 +200,24 @@ function InventoryApp() {
               }
             }}
           />
+        ) : view === 'sales' ? (
+          <SalesPage 
+            sales={sales} 
+            isLoading={salesLoading} 
+            onUploadClick={() => setView('pos')} 
+          />
         ) : view === 'conversions' ? (
-          <ConversionsSettings />
+          <Settings onEditItem={(item) => {
+            setCreateItemInitialData(item as any);
+            setIsModalOpen(true);
+          }} />
         ) : (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <CategoryFilter 
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
+                categories={settings?.categories || []}
               />
               <div className="flex items-center gap-4 self-start sm:self-auto">
                 <div className="flex items-center bg-[var(--color-bg-card)] border border-[var(--color-border)] p-1 rounded-lg">
@@ -262,7 +301,6 @@ function InventoryApp() {
           <InventoryTable
             items={filteredItems}
             unitView={unitView}
-            onUpdateStock={(id, delta) => updateStock.mutate({ id, delta })}
             onDelete={(id) => deleteItem.mutate(id)}
           />
         )}
@@ -272,19 +310,26 @@ function InventoryApp() {
 
       <CreateItemModal
         isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         initialData={createItemInitialData as any}
-        onClose={() => {
-          setIsModalOpen(false);
-          setCreateItemInitialData(undefined);
-        }}
-        isSubmitting={createItem.isPending}
+        isSubmitting={createItem.isPending || updateItem.isPending}
+        categories={settings?.categories || []}
         onSubmit={(data) => {
-          createItem.mutate(data, {
-            onSuccess: () => {
-              setIsModalOpen(false);
-              setCreateItemInitialData(undefined);
-            },
-          });
+          if (data.id) {
+            updateItem.mutate({ id: data.id, data }, {
+              onSuccess: () => {
+                setIsModalOpen(false);
+                setCreateItemInitialData(undefined);
+              }
+            });
+          } else {
+            createItem.mutate(data as any, {
+              onSuccess: () => {
+                setIsModalOpen(false);
+                setCreateItemInitialData(undefined);
+              }
+            });
+          }
         }}
       />
     </>

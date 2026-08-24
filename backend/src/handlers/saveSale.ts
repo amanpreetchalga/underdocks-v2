@@ -1,22 +1,24 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { ddbDocClient, TABLE_NAME } from '../lib/ddb';
+import { ddbDocClient } from '../lib/ddb';
+import crypto from 'crypto';
 
-import { randomUUID } from 'crypto';
+const SALES_TABLE_NAME = process.env.SALES_TABLE_NAME!;
 
 const itemSchema = z.object({
-  name: z.string().min(1),
-  category: z.string().min(1, 'Category is required'),
-  unit: z.enum(['kg', 'piece', 'liter']),
-  currentStock: z.number().min(0),
-  minThreshold: z.number().min(0),
-  altUnit: z.string().optional(),
-  altUnitFactor: z.number().min(0.0001).optional(),
-  ingredients: z.array(z.object({
-    itemId: z.string(),
-    quantity: z.number().min(0.0001)
-  })).optional(),
+  id: z.string().optional(),
+  originalName: z.string(),
+  quantity: z.number(),
+  priceStr: z.string().optional(),
+  isValuable: z.boolean().optional(),
+  itemId: z.string().optional(),
+  multiplier: z.number().optional(),
+});
+
+const bodySchema = z.object({
+  date: z.string(),
+  items: z.array(itemSchema),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -30,10 +32,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     const parsedBody = JSON.parse(event.body);
-    const validationResult = itemSchema.safeParse(parsedBody);
+    const validationResult = bodySchema.safeParse(parsedBody);
 
     if (!validationResult.success) {
-      console.error('Validation failed:', JSON.stringify(validationResult.error.errors, null, 2));
       return {
         statusCode: 400,
         headers: {
@@ -45,16 +46,16 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       };
     }
 
-    const item = {
-      id: randomUUID().split('-')[0].toUpperCase(),
+    const receipt = {
+      id: `sales-${crypto.randomUUID()}`,
       ...validationResult.data,
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     await ddbDocClient.send(
       new PutCommand({
-        TableName: TABLE_NAME,
-        Item: item,
+        TableName: SALES_TABLE_NAME,
+        Item: receipt,
       })
     );
 
@@ -65,10 +66,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT,PATCH,DELETE',
       },
-      body: JSON.stringify(item),
+      body: JSON.stringify(receipt),
     };
   } catch (error) {
-    console.error('Error creating item:', error);
+    console.error('Error saving sales receipt:', error);
     return {
       statusCode: 500,
       headers: {
@@ -76,7 +77,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT,PATCH,DELETE',
       },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({ message: 'Internal server error' }),
     };
   }
 };

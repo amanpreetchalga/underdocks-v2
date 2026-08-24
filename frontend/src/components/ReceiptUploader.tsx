@@ -4,6 +4,8 @@ import { useItems, useCreateItem } from '../api/inventory';
 import { saveMapping, getMapping } from '../lib/mappingMemory';
 import { CreateItemModal } from './CreateItemModal';
 
+import type { CategoryOption } from '../types/types';
+
 interface ParsedItem {
   name: string;
   quantity: number;
@@ -16,9 +18,10 @@ interface ReceiptUploaderProps {
   onParse: (base64Image: string) => Promise<ParsedItem[]>;
   onConfirm: (items: ParsedItem[]) => void;
   isParsing: boolean;
+  categories: CategoryOption[];
 }
 
-export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUploaderProps) {
+export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: ReceiptUploaderProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -284,6 +287,7 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing }: ReceiptUpload
             setEditingIndex(null);
           }}
           isSubmitting={createItem.isPending}
+          categories={categories}
           initialData={{ name: parsedItems[editingIndex].name }}
           onSubmit={(data) => {
             createItem.mutate(data, {

@@ -1,23 +1,17 @@
-import type { ItemCategory } from '../types/types';
+import type { CategoryOption } from '../types/types';
 
 interface CategoryFilterProps {
-  selectedCategory: ItemCategory | 'all';
-  onSelectCategory: (category: ItemCategory | 'all') => void;
+  selectedCategory: string;
+  onSelectCategory: (category: string) => void;
+  categories: CategoryOption[];
 }
 
-const CATEGORIES: { value: ItemCategory | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Items' },
-  { value: 'fish', label: '🐟 Fish & Seafood' },
-  { value: 'drinks', label: '🥤 Drinks' },
-  { value: 'sauces', label: '🥣 Sauces' },
-  { value: 'breads', label: '🥖 Breads' },
-  { value: 'selling_unit', label: '🍽️ Recipes' },
-];
+export function CategoryFilter({ selectedCategory, onSelectCategory, categories }: CategoryFilterProps) {
+  const allCategories = [{ value: 'all', label: 'All Items' }, ...categories];
 
-export function CategoryFilter({ selectedCategory, onSelectCategory }: CategoryFilterProps) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide px-6 pt-4">
-      {CATEGORIES.map((cat) => (
+      {allCategories.map((cat) => (
         <button
           key={cat.value}
           onClick={() => onSelectCategory(cat.value)}

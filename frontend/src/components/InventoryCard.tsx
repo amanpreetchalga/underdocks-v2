@@ -13,7 +13,7 @@ export function InventoryCard({ item, unitView, onDelete }: InventoryCardProps) 
   const isWeightView = unitView === 'alt';
   const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(item.unit.toLowerCase());
   
-  let displayUnit = item.unit;
+  let displayUnit: string = item.unit;
   let rawDisplayStock = item.currentStock;
   let displayVariance = item.lastCheckVariance;
 

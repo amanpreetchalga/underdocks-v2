@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import type { InventoryItem, ItemCategory } from '../types/types';
+import type { InventoryItem, CategoryOption } from '../types/types';
 
 interface InventoryCheckProps {
   items: InventoryItem[];
   onSubmit: (updates: { id: string; actual: number }[]) => void;
   isSubmitting: boolean;
+  categories: CategoryOption[];
 }
 
-const CATEGORIES: ItemCategory[] = ['fish', 'drinks', 'sauces', 'breads'];
-
-export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheckProps) {
+export function InventoryCheck({ items, onSubmit, isSubmitting, categories }: InventoryCheckProps) {
   // Store the user's actual quantity inputs mapped by item ID
   const [actualQuantities, setActualQuantities] = useState<Record<string, number>>({});
 
@@ -20,7 +19,7 @@ export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheck
       setActualQuantities(newQuantities);
       return;
     }
-    const num = parseInt(value, 10);
+    const num = parseFloat(value);
     if (!isNaN(num) && num >= 0) {
       setActualQuantities({ ...actualQuantities, [id]: num });
     }
@@ -42,9 +41,10 @@ export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheck
     }
   };
 
-  const groupedItems = CATEGORIES.map((category) => ({
-    category,
-    items: items.filter((item) => item.category === category),
+  const groupedItems = categories.map((cat) => ({
+    category: cat.value,
+    label: cat.label,
+    items: items.filter((item) => item.category === cat.value),
   }));
 
   return (
@@ -57,12 +57,12 @@ export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheck
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {groupedItems.map(({ category, items }) => {
+        {groupedItems.map(({ category, label, items }) => {
           if (items.length === 0) return null;
           return (
             <div key={category} className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl overflow-hidden shadow-sm">
               <div className="bg-[var(--color-bg)] px-6 py-4 border-b border-[var(--color-border)]">
-                <h3 className="text-lg font-bold capitalize text-[var(--color-text-main)]">{category}</h3>
+                <h3 className="text-lg font-bold capitalize text-[var(--color-text-main)]">{label}</h3>
               </div>
               <div className="divide-y divide-[var(--color-border)]">
                 {items.map((item) => (
@@ -78,6 +78,7 @@ export function InventoryCheck({ items, onSubmit, isSubmitting }: InventoryCheck
                       <input
                         type="number"
                         min="0"
+                        step={item.unit === 'kg' || item.unit === 'liter' ? "0.001" : "1"}
                         placeholder={(item.unit === 'kg' || item.unit === 'liter' ? Number(item.currentStock.toFixed(3)) : Math.round(item.currentStock)).toString()}
                         value={actualQuantities[item.id] !== undefined ? actualQuantities[item.id] : ''}
                         onChange={(e) => handleInputChange(item.id, e.target.value)}

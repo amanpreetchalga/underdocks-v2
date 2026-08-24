@@ -1,23 +1,13 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { UploadCloud, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Papa from 'papaparse';
-import type { InventoryItem } from '../types/types';
+import type { InventoryItem, PosParsedItem } from '../types/types';
 
 interface PosUploaderProps {
   inventoryItems: InventoryItem[] | undefined;
-  onConfirm: (items: PosParsedItem[]) => Promise<void>;
+  onConfirm: (items: PosParsedItem[], date: string) => Promise<void>;
   isSubmitting: boolean;
   onCreateNewItem?: (defaultName: string) => void;
-}
-
-export interface PosParsedItem {
-  id: string;
-  originalName: string;
-  quantity: number;
-  priceStr: string;
-  isValuable: boolean;
-  itemId?: string; // matched inventory ID
-  multiplier: number;
 }
 
 export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateNewItem }: PosUploaderProps) {
@@ -218,7 +208,7 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
     const newMatchMap = { ...matchMemory };
     
     parsedItems.forEach(item => {
-      newValMap[item.originalName] = item.isValuable;
+      newValMap[item.originalName] = item.isValuable || false;
       if (item.itemId) {
         newMatchMap[item.originalName] = { id: item.itemId, multiplier: item.multiplier };
       }
@@ -229,7 +219,7 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
     setValuableMemory(newValMap);
     setMatchMemory(newMatchMap);
 
-    await onConfirm(valuableItems);
+    await onConfirm(valuableItems, reportDate || 'Unknown Date');
   };
 
   // Group and sort items

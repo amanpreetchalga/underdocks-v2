@@ -34,6 +34,18 @@ Resources:
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
 
+  UnderdocksSalesV2:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UnderdocksSalesV2
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
   UnderdocksApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -139,7 +151,39 @@ Resources:
           Properties:
             ApiId: !Ref UnderdocksApi
             Path: /items/{id}/check
-            Method: POST
+            Method: PATCH
+
+  BatchCheckInventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: batchCheckInventory.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/batch-check
+            Method: PATCH
+
+  BatchUpdateStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: batchUpdateStock.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /items/batch-update
+            Method: PATCH
 
   ParseReceiptFunction:
     Type: AWS::Serverless::Function
@@ -156,6 +200,66 @@ Resources:
           Properties:
             ApiId: !Ref UnderdocksApi
             Path: /receipts/parse
+            Method: POST
+
+  SettingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: settings.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksInventoryV2
+      Events:
+        ApiGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /settings
+            Method: GET
+        ApiPatch:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /settings
+            Method: PATCH
+
+  GetSalesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: getSales.handler
+      Environment:
+        Variables:
+          SALES_TABLE_NAME: !Ref UnderdocksSalesV2
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksSalesV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /sales
+            Method: GET
+
+  SaveSaleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: saveSale.handler
+      Environment:
+        Variables:
+          SALES_TABLE_NAME: !Ref UnderdocksSalesV2
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UnderdocksSalesV2
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /sales
             Method: POST
 
 Outputs:

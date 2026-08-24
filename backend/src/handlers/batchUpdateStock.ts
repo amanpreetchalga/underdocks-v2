@@ -1,23 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
 import { ddbDocClient, TABLE_NAME } from '../lib/ddb';
 
-import { randomUUID } from 'crypto';
-
-const itemSchema = z.object({
-  name: z.string().min(1),
-  category: z.string().min(1, 'Category is required'),
-  unit: z.enum(['kg', 'piece', 'liter']),
-  currentStock: z.number().min(0),
-  minThreshold: z.number().min(0),
-  altUnit: z.string().optional(),
-  altUnitFactor: z.number().min(0.0001).optional(),
-  ingredients: z.array(z.object({
-    itemId: z.string(),
-    quantity: z.number().min(0.0001)
-  })).optional(),
-});
+const bodySchema = z.array(z.object({
+  id: z.string(),
+  delta: z.number(),
+}));
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -30,10 +19,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     const parsedBody = JSON.parse(event.body);
-    const validationResult = itemSchema.safeParse(parsedBody);
+    const validationResult = bodySchema.safeParse(parsedBody);
 
     if (!validationResult.success) {
-      console.error('Validation failed:', JSON.stringify(validationResult.error.errors, null, 2));
       return {
         statusCode: 400,
         headers: {
@@ -45,30 +33,36 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       };
     }
 
-    const item = {
-      id: randomUUID().split('-')[0].toUpperCase(),
-      ...validationResult.data,
-      updatedAt: new Date().toISOString(),
-    };
+    const updates = validationResult.data;
 
-    await ddbDocClient.send(
-      new PutCommand({
-        TableName: TABLE_NAME,
-        Item: item,
-      })
+    // Process all updates in parallel
+    await Promise.all(
+      updates.map(update =>
+        ddbDocClient.send(
+          new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { id: update.id },
+            UpdateExpression: 'ADD currentStock :delta SET updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+              ':delta': update.delta,
+              ':updatedAt': new Date().toISOString(),
+            },
+          })
+        )
+      )
     );
 
     return {
-      statusCode: 201,
+      statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT,PATCH,DELETE',
       },
-      body: JSON.stringify(item),
+      body: JSON.stringify({ message: `Successfully updated ${updates.length} items.` }),
     };
   } catch (error) {
-    console.error('Error creating item:', error);
+    console.error('Error in batchUpdateStock:', error);
     return {
       statusCode: 500,
       headers: {
@@ -76,7 +70,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT,PATCH,DELETE',
       },
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({ message: 'Internal server error' }),
     };
   }
 };

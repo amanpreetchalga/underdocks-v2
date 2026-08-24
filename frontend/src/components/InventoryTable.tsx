@@ -5,13 +5,12 @@ import type { InventoryItem } from '../types/types';
 interface InventoryTableProps {
   items: InventoryItem[];
   unitView: 'base' | 'alt';
-  onUpdateStock: (id: string, delta: number) => void;
   onDelete: (id: string) => void;
 }
 
 type SortKey = keyof InventoryItem | 'variance';
 
-export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: InventoryTableProps) {
+export function InventoryTable({ items, unitView, onDelete }: InventoryTableProps) {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
   const sortedItems = [...items].sort((a, b) => {
@@ -74,7 +73,7 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
             const isWeightView = unitView === 'alt';
             const primaryIsWeight = ['kg', 'liter', 'g', 'l'].includes(item.unit.toLowerCase());
             
-            let displayUnit = item.unit;
+            let displayUnit: string = item.unit;
             let rawDisplayStock = item.currentStock;
 
             if (isWeightView) {
@@ -188,13 +187,4 @@ export function InventoryTable({ items, unitView, onUpdateStock, onDelete }: Inv
   );
 }
 
-function StockButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-7 h-7 flex items-center justify-center rounded-md font-mono text-xs font-medium text-[var(--color-text-main)] hover:bg-[var(--color-border)] hover:text-[var(--color-primary)] transition-colors active:scale-95"
-    >
-      {label}
-    </button>
-  );
-}
+

@@ -5,9 +5,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useItems } from '../api/inventory';
 
+import type { CategoryOption } from '../types/types';
+
 const itemSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  category: z.enum(['fish', 'drinks', 'sauces', 'breads', 'selling_unit']),
+  category: z.string().min(1, 'Category is required'),
   unit: z.enum(['kg', 'piece', 'liter']),
   currentStock: z.number().min(0, 'Must be 0 or more'),
   minThreshold: z.number().min(0, 'Must be 0 or more'),
@@ -24,12 +26,13 @@ type ItemFormValues = z.infer<typeof itemSchema>;
 interface CreateItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ItemFormValues) => void;
+  onSubmit: (data: ItemFormValues & { id?: string }) => void;
   isSubmitting: boolean;
-  initialData?: Partial<ItemFormValues>;
+  categories: CategoryOption[];
+  initialData?: Partial<ItemFormValues> & { id?: string };
 }
 
-export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initialData }: CreateItemModalProps) {
+export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categories, initialData }: CreateItemModalProps) {
   const { data: inventoryItems } = useItems();
   
   const {
@@ -77,19 +80,28 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
 
   if (!isOpen) return null;
 
+  const isEditing = !!initialData?.id;
+
   const handleFormSubmit = (data: ItemFormValues) => {
     // If it's not a selling unit, remove ingredients
     if (data.category !== 'selling_unit') {
       data.ingredients = undefined;
     }
-    onSubmit(data);
+    
+    if (isEditing && initialData?.id) {
+      onSubmit({ ...data, id: initialData.id });
+    } else {
+      onSubmit(data);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
       <div className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-2xl w-full max-w-md shadow-2xl shadow-black/50 overflow-hidden my-auto">
         <div className="flex justify-between items-center p-5 border-b border-[var(--color-border)]">
-          <h2 className="text-xl font-bold text-[var(--color-text-main)] m-0">Add New Item</h2>
+          <h2 className="text-xl font-bold text-[var(--color-text-main)] m-0">
+            {isEditing ? 'Edit Item' : 'Add New Item'}
+          </h2>
           <button
             onClick={onClose}
             className="text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-[var(--color-border)] p-1.5 rounded-lg transition-colors"
@@ -116,11 +128,9 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, initi
                 {...register('category')}
                 className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] appearance-none"
               >
-                <option value="fish">🐟 Fish</option>
-                <option value="drinks">🥤 Drinks</option>
-                <option value="sauces">🥣 Sauces</option>
-                <option value="breads">🥖 Breads</option>
-                <option value="selling_unit">🍽️ Selling Unit (Recipe)</option>
+                {categories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
               </select>
             </div>
             <div>

@@ -5,7 +5,7 @@ import { ddbDocClient, TABLE_NAME } from '../lib/ddb';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
-  category: z.enum(['fish', 'drinks', 'sauces', 'breads', 'selling_unit']).optional(),
+  category: z.string().min(1).optional(),
   unit: z.enum(['kg', 'piece', 'liter']).optional(),
   altUnit: z.string().optional(),
   altUnitFactor: z.number().min(0.0001).optional().nullable(),

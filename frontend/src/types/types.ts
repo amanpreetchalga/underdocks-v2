@@ -1,4 +1,14 @@
-export type ItemCategory = 'fish' | 'drinks' | 'sauces' | 'breads' | 'selling_unit';
+export type ItemCategory = string;
+
+export interface CategoryOption {
+  value: string;
+  label: string;
+}
+
+export interface AppSettings {
+  categories: CategoryOption[];
+}
+
 export type UnitType = 'kg' | 'piece' | 'liter';
 
 export interface Ingredient {
@@ -25,4 +35,21 @@ export interface InventoryItem {
 
 export interface StockUpdateInput {
   delta: number;
+}
+
+export interface PosParsedItem {
+  id: string;
+  originalName: string;
+  quantity: number;
+  priceStr: string;
+  isValuable?: boolean;
+  itemId?: string;
+  multiplier: number;
+}
+
+export interface SalesReceipt {
+  id: string;
+  date: string;
+  items: PosParsedItem[];
+  createdAt: string;
 }

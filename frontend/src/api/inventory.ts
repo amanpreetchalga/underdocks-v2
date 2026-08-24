@@ -1,7 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InventoryItem } from '../types/types';
+import type { InventoryItem, AppSettings, SalesReceipt } from '../types/types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'; // Default SAM local endpoint via Vite proxy
+
+export const useSettings = () => {
+  return useQuery<AppSettings>({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/settings`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      return response.json();
+    },
+  });
+};
+
+export const useUpdateSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: AppSettings) => {
+      const response = await fetch(`${API_URL}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update settings');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+  });
+};
 
 export const useItems = () => {
   return useQuery<InventoryItem[]>({
@@ -9,7 +38,73 @@ export const useItems = () => {
     queryFn: async () => {
       const response = await fetch(`${API_URL}/items`);
       if (!response.ok) throw new Error('Failed to fetch items');
+      const data = await response.json();
+      return data.sort((a: InventoryItem, b: InventoryItem) => a.name.localeCompare(b.name));
+    },
+  });
+};
+
+export const useBatchUpdateStock = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string; delta: number }[]) => {
+      const response = await fetch(`${API_URL}/items/batch-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) throw new Error('Failed to batch update stock');
       return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+};
+
+export const useBatchCheckInventory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (checks: { id: string; actual: number }[]) => {
+      const response = await fetch(`${API_URL}/items/batch-check`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checks),
+      });
+      if (!response.ok) throw new Error('Failed to batch check inventory');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+};
+
+export const useSales = () => {
+  return useQuery<SalesReceipt[]>({
+    queryKey: ['sales'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/sales`);
+      if (!response.ok) throw new Error('Failed to fetch sales receipts');
+      return response.json();
+    },
+  });
+};
+
+export const useSaveSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sale: Omit<SalesReceipt, 'id' | 'createdAt'>) => {
+      const response = await fetch(`${API_URL}/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sale),
+      });
+      if (!response.ok) throw new Error('Failed to save sale receipt');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
     },
   });
 };
