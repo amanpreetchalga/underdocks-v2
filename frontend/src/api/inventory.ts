@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InventoryItem, AppSettings, SalesReceipt } from '../types/types';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api'; // Default SAM local endpoint via Vite proxy
+let rawApiUrl = import.meta.env.VITE_API_URL || '/api';
+const API_URL = rawApiUrl.replace(/\/$/, ''); // Prevent double slashes if user pasted with trailing slash
 
 export const useSettings = () => {
   return useQuery<AppSettings>({
