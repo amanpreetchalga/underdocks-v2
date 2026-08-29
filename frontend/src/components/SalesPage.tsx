@@ -5,10 +5,11 @@ import type { SalesReceipt } from '../types/types';
 interface SalesPageProps {
   sales: SalesReceipt[] | undefined;
   isLoading: boolean;
-  onUploadClick: () => void;
+  onUploadClick?: () => void;
+  hideUploadButton?: boolean;
 }
 
-export function SalesPage({ sales, isLoading, onUploadClick }: SalesPageProps) {
+export function SalesPage({ sales, isLoading, onUploadClick, hideUploadButton }: SalesPageProps) {
   const [expandedReceipts, setExpandedReceipts] = useState<Set<string>>(new Set());
 
   const toggleExpand = (id: string) => {
@@ -29,12 +30,14 @@ export function SalesPage({ sales, isLoading, onUploadClick }: SalesPageProps) {
             View imported POS sales receipts.
           </p>
         </div>
-        <button
-          onClick={onUploadClick}
-          className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-[var(--color-primary)]/20"
-        >
-          <UploadCloud size={18} /> Upload Sales Receipt
-        </button>
+        {!hideUploadButton && onUploadClick && (
+          <button
+            onClick={onUploadClick}
+            className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-[var(--color-primary)]/20"
+          >
+            <UploadCloud size={18} /> Upload Sales Receipt
+          </button>
+        )}
       </div>
 
       {isLoading ? (

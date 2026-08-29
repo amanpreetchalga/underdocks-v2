@@ -19,6 +19,8 @@ const itemSchema = z.object({
     itemId: z.string().min(1, 'Required'),
     quantity: z.number().min(0.0001, 'Must be positive')
   })).optional(),
+  grossWeightPerBox: z.number().min(0.0001, 'Must be positive').optional(),
+  netWeightPerBox: z.number().min(0.0001, 'Must be positive').optional(),
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -51,6 +53,8 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
       minThreshold: 10,
       altUnit: '',
       ingredients: [],
+      grossWeightPerBox: undefined,
+      netWeightPerBox: undefined,
     },
   });
 
@@ -74,6 +78,8 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
         altUnit: initialData?.altUnit || '',
         altUnitFactor: initialData?.altUnitFactor || undefined,
         ingredients: initialData?.ingredients || [],
+        grossWeightPerBox: initialData?.grossWeightPerBox || undefined,
+        netWeightPerBox: initialData?.netWeightPerBox || undefined,
       });
     }
   }, [isOpen, initialData, reset]);
@@ -86,6 +92,16 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
     // If it's not a selling unit, remove ingredients
     if (data.category !== 'selling_unit') {
       data.ingredients = undefined;
+    }
+
+    if (data.category === 'breads' || data.category === 'drinks' || data.category === 'selling_unit') {
+      data.altUnit = '';
+      data.altUnitFactor = null as any;
+    }
+
+    if (data.category !== 'fish') {
+      data.grossWeightPerBox = null as any;
+      data.netWeightPerBox = null as any;
     }
     
     if (isEditing && initialData?.id) {
@@ -152,6 +168,7 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
                 <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Initial Stock</label>
                 <input
                   type="number"
+                  step="0.001"
                   {...register('currentStock', { valueAsNumber: true })}
                   className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
@@ -161,6 +178,7 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
                 <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Min Threshold</label>
                 <input
                   type="number"
+                  step="0.001"
                   {...register('minThreshold', { valueAsNumber: true })}
                   className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
@@ -192,6 +210,36 @@ export function CreateItemModal({ isOpen, onClose, onSubmit, isSubmitting, categ
                   />
                   {errors.altUnitFactor && <p className="text-red-400 text-xs mt-1">{errors.altUnitFactor.message}</p>}
                   <p className="text-xs text-[var(--color-text-muted)] mt-1">E.g., if 1 piece = 0.0417 kg, enter 0.0417.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {category === 'fish' && (
+            <div className="border-t border-[var(--color-border)] pt-4 mt-2">
+              <h3 className="text-sm font-bold text-[var(--color-text-main)] mb-3">Weight per Box (Ice Glazing)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Gross Frozen Weight</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    {...register('grossWeightPerBox', { setValueAs: (v) => v === "" || isNaN(parseFloat(v)) ? undefined : parseFloat(v) })}
+                    placeholder="e.g. 7.0"
+                    className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  {errors.grossWeightPerBox && <p className="text-red-400 text-xs mt-1">{errors.grossWeightPerBox.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Drained Net Weight</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    {...register('netWeightPerBox', { setValueAs: (v) => v === "" || isNaN(parseFloat(v)) ? undefined : parseFloat(v) })}
+                    placeholder="e.g. 6.3"
+                    className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  {errors.netWeightPerBox && <p className="text-red-400 text-xs mt-1">{errors.netWeightPerBox.message}</p>}
                 </div>
               </div>
             </div>

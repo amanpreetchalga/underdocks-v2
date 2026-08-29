@@ -233,9 +233,18 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
                         
                         let finalAmount = item.quantity * item.qtyPerBox;
                         let computedPieces: number | null = null;
-                        
+                        let isWeightMismatch = false;
+                        let expectedGross = 0;
+                        if (invItem.grossWeightPerBox && Math.abs(item.qtyPerBox - invItem.grossWeightPerBox) > 0.05) {
+                          isWeightMismatch = true;
+                          expectedGross = invItem.grossWeightPerBox;
+                        }
+
                         // If the parsed unit matches the alt unit, convert to main unit
-                        if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
+                        if (invItem.netWeightPerBox) {
+                          finalAmount = item.quantity * invItem.netWeightPerBox;
+                        }
+                        else if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
                           finalAmount = finalAmount / invItem.altUnitFactor;
                         } 
                         // If the parsed unit matches the main unit, but an alt unit (Base Unit) is defined, compute pieces
@@ -245,13 +254,21 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
                         
                         return (
                           <div className="mb-2 text-right">
-                            <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">Will Add</span>
+                            {isWeightMismatch && (
+                              <div className="flex items-center justify-end gap-1 text-orange-400 mb-1" title={`Expected gross weight per box: ${expectedGross}kg`}>
+                                <AlertCircle size={12} />
+                                <span className="text-[9px] font-bold">Weight Mismatch</span>
+                              </div>
+                            )}
+                            <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">
+                              Will Add {invItem.netWeightPerBox ? '(Net)' : ''}
+                            </span>
                             <span className="font-bold text-[var(--color-text-main)] text-sm">
                               +{Math.round(finalAmount * 100) / 100} {invItem.unit}
                             </span>
-                            {computedPieces !== null && (
-                              <span className="block text-xs font-bold text-green-400 mt-1">
-                                ~{Math.round(computedPieces)} {invItem.altUnit}
+                            {computedPieces !== null && !invItem.netWeightPerBox && (
+                              <span className="block text-xs text-[var(--color-text-muted)]">
+                                ≈ {Math.round(computedPieces)} {invItem.altUnit}
                               </span>
                             )}
                           </div>
@@ -290,7 +307,7 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
           categories={categories}
           initialData={{ name: parsedItems[editingIndex].name }}
           onSubmit={(data) => {
-            createItem.mutate(data, {
+            createItem.mutate(data as any, {
               onSuccess: (createdItem) => {
                 const newItems = [...parsedItems];
                 newItems[editingIndex].itemId = createdItem.id;

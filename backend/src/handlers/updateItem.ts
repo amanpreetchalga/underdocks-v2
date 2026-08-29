@@ -14,6 +14,10 @@ const updateSchema = z.object({
     itemId: z.string(),
     quantity: z.number().min(0.0001)
   })).optional(),
+  grossWeightPerBox: z.number().min(0.0001).optional().nullable(),
+  netWeightPerBox: z.number().min(0.0001).optional().nullable(),
+  currentStock: z.number().min(0).optional(),
+  minThreshold: z.number().min(0).optional(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -91,9 +95,52 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     if (data.altUnitFactor !== undefined) {
-      updateExpressions.push('#altUnitFactor = :altUnitFactor');
-      expressionAttributeNames['#altUnitFactor'] = 'altUnitFactor';
-      expressionAttributeValues[':altUnitFactor'] = data.altUnitFactor;
+      if (data.altUnitFactor === null) {
+        removeExpressions.push('#altUnitFactor');
+        expressionAttributeNames['#altUnitFactor'] = 'altUnitFactor';
+      } else {
+        updateExpressions.push('#altUnitFactor = :altUnitFactor');
+        expressionAttributeNames['#altUnitFactor'] = 'altUnitFactor';
+        expressionAttributeValues[':altUnitFactor'] = data.altUnitFactor;
+      }
+      hasUpdates = true;
+    }
+
+    if (data.grossWeightPerBox !== undefined) {
+      if (data.grossWeightPerBox === null) {
+        removeExpressions.push('#grossWeightPerBox');
+        expressionAttributeNames['#grossWeightPerBox'] = 'grossWeightPerBox';
+      } else {
+        updateExpressions.push('#grossWeightPerBox = :grossWeightPerBox');
+        expressionAttributeNames['#grossWeightPerBox'] = 'grossWeightPerBox';
+        expressionAttributeValues[':grossWeightPerBox'] = data.grossWeightPerBox;
+      }
+      hasUpdates = true;
+    }
+
+    if (data.netWeightPerBox !== undefined) {
+      if (data.netWeightPerBox === null) {
+        removeExpressions.push('#netWeightPerBox');
+        expressionAttributeNames['#netWeightPerBox'] = 'netWeightPerBox';
+      } else {
+        updateExpressions.push('#netWeightPerBox = :netWeightPerBox');
+        expressionAttributeNames['#netWeightPerBox'] = 'netWeightPerBox';
+        expressionAttributeValues[':netWeightPerBox'] = data.netWeightPerBox;
+      }
+      hasUpdates = true;
+    }
+
+    if (data.currentStock !== undefined) {
+      updateExpressions.push('#currentStock = :currentStock');
+      expressionAttributeNames['#currentStock'] = 'currentStock';
+      expressionAttributeValues[':currentStock'] = data.currentStock;
+      hasUpdates = true;
+    }
+
+    if (data.minThreshold !== undefined) {
+      updateExpressions.push('#minThreshold = :minThreshold');
+      expressionAttributeNames['#minThreshold'] = 'minThreshold';
+      expressionAttributeValues[':minThreshold'] = data.minThreshold;
       hasUpdates = true;
     }
 

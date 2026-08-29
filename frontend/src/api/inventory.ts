@@ -127,22 +127,31 @@ export const useCreateItem = () => {
     onMutate: async (newItem) => {
       await queryClient.cancelQueries({ queryKey: ['items'] });
       const previousItems = queryClient.getQueryData<InventoryItem[]>(['items']);
+      const tempId = `temp-${Date.now()}`;
 
       if (previousItems) {
         queryClient.setQueryData<InventoryItem[]>(['items'], [
           ...previousItems,
           {
             ...newItem,
-            id: `temp-${Date.now()}`,
+            id: tempId,
             updatedAt: new Date().toISOString(),
           } as InventoryItem,
         ]);
       }
-      return { previousItems };
+      return { previousItems, tempId };
     },
     onError: (_, __, context) => {
       if (context?.previousItems) {
         queryClient.setQueryData(['items'], context.previousItems);
+      }
+    },
+    onSuccess: (createdItem, _, context) => {
+      if (context?.tempId) {
+        queryClient.setQueryData<InventoryItem[]>(['items'], old => {
+          if (!old) return old;
+          return old.map(item => item.id === context.tempId ? createdItem : item);
+        });
       }
     },
     onSettled: () => {

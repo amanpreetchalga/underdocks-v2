@@ -31,6 +31,8 @@ export interface InventoryItem {
   lastCheckVariance?: number;
   lastCheckDate?: string;
   ingredients?: Ingredient[];
+  grossWeightPerBox?: number;
+  netWeightPerBox?: number;
 }
 
 export interface StockUpdateInput {

@@ -11,12 +11,14 @@ const itemSchema = z.object({
   unit: z.enum(['kg', 'piece', 'liter']),
   currentStock: z.number().min(0),
   minThreshold: z.number().min(0),
-  altUnit: z.string().optional(),
-  altUnitFactor: z.number().min(0.0001).optional(),
+  altUnit: z.string().optional().nullable(),
+  altUnitFactor: z.number().min(0.0001).optional().nullable(),
   ingredients: z.array(z.object({
     itemId: z.string(),
     quantity: z.number().min(0.0001)
-  })).optional(),
+  })).optional().nullable(),
+  grossWeightPerBox: z.number().min(0.0001).optional().nullable(),
+  netWeightPerBox: z.number().min(0.0001).optional().nullable(),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {

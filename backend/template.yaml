@@ -19,33 +19,9 @@ Globals:
       - arm64
     Environment:
       Variables:
-        TABLE_NAME: !Ref UnderdocksInventoryV2
+        TABLE_NAME: "UnderdocksInventoryV2"
 
 Resources:
-  UnderdocksInventoryV2:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: UnderdocksInventoryV2
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
-  UnderdocksSalesV2:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: UnderdocksSalesV2
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
   UnderdocksApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -64,7 +40,7 @@ Resources:
       Handler: getItems.handler
       Policies:
         - DynamoDBReadPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -80,7 +56,7 @@ Resources:
       Handler: createItem.handler
       Policies:
         - DynamoDBWritePolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -96,7 +72,7 @@ Resources:
       Handler: updateStock.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -112,7 +88,7 @@ Resources:
       Handler: deleteItem.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -128,7 +104,7 @@ Resources:
       Handler: updateItem.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -144,7 +120,7 @@ Resources:
       Handler: checkInventory.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -160,7 +136,7 @@ Resources:
       Handler: batchCheckInventory.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -176,7 +152,7 @@ Resources:
       Handler: batchUpdateStock.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         Api:
           Type: HttpApi
@@ -209,7 +185,7 @@ Resources:
       Handler: settings.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksInventoryV2
+            TableName: "UnderdocksInventoryV2"
       Events:
         ApiGet:
           Type: HttpApi
@@ -231,10 +207,10 @@ Resources:
       Handler: getSales.handler
       Environment:
         Variables:
-          SALES_TABLE_NAME: !Ref UnderdocksSalesV2
+          SALES_TABLE_NAME: "UnderdocksSalesV2"
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksSalesV2
+            TableName: "UnderdocksSalesV2"
       Events:
         Api:
           Type: HttpApi
@@ -250,10 +226,10 @@ Resources:
       Handler: saveSale.handler
       Environment:
         Variables:
-          SALES_TABLE_NAME: !Ref UnderdocksSalesV2
+          SALES_TABLE_NAME: "UnderdocksSalesV2"
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UnderdocksSalesV2
+            TableName: "UnderdocksSalesV2"
       Events:
         Api:
           Type: HttpApi
