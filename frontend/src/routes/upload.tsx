@@ -58,7 +58,7 @@ function UploadComponent() {
               date: new Date().toISOString().split('T')[0],
               items: matchedItems.map(item => ({
                 name: item.name,
-                originalName: item.originalName || item.name,
+                originalName: item.name,
                 quantity: item.quantity,
                 qtyPerBox: item.qtyPerBox,
                 unit: item.unit,
