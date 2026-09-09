@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { UploadCloud, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Papa from 'papaparse';
 import type { InventoryItem, PosParsedItem } from '../types/types';
+import { useParseReceipt } from '../api/inventory';
 
 interface PosUploaderProps {
   inventoryItems: InventoryItem[] | undefined;
@@ -16,6 +17,7 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
   const [showHidden, setShowHidden] = useState(false);
   const [reportDate, setReportDate] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
+  const parseReceipt = useParseReceipt();
 
   // Load saved preferences
   const [valuableMemory, setValuableMemory] = useState<Record<string, boolean>>(() => {
@@ -65,8 +67,51 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
   }, []);
 
   const processFile = useCallback((file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      setError('Please upload a valid CSV file.');
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.pdf')) {
+      setError('Please upload a valid CSV or PDF file.');
+      return;
+    }
+
+    if (file.name.endsWith('.pdf')) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        try {
+          const result = await parseReceipt.mutateAsync({ base64Image: base64, type: 'pos' });
+          const items = result.items || [];
+          setReportDate(result.dateStr || 'Unknown Date');
+          
+          const extracted: PosParsedItem[] = [];
+          items.forEach((item: any, i: number) => {
+            const originalName = item.originalName;
+            const quantity = item.quantity;
+            const priceStr = '0,00';
+            
+            // Skip completely zero rows if they are just artifacts
+            if (originalName === '' || quantity === 0) return;
+
+            const isValuable = valuableMemory[originalName] !== undefined ? valuableMemory[originalName] : quantity > 0;
+            const memoryMatch = matchMemory[originalName];
+            const itemId = memoryMatch?.id || '';
+            const multiplier = memoryMatch?.multiplier || 1;
+
+            extracted.push({
+              id: `pos-${i}-${Math.random().toString(36).substr(2, 9)}`,
+              originalName,
+              quantity,
+              priceStr,
+              isValuable,
+              itemId,
+              multiplier
+            });
+          });
+          setParsedItems(extracted);
+        } catch (err: any) {
+          setError(err.message || 'Failed to parse PDF.');
+        }
+      };
+      reader.onerror = () => setError('Failed to read file.');
+      reader.readAsDataURL(file);
       return;
     }
 
@@ -264,17 +309,18 @@ export function PosUploader({ inventoryItems, onConfirm, isSubmitting, onCreateN
       >
         <input
           type="file"
-          accept=".csv"
+          accept=".csv, .pdf"
           className="hidden"
           id="csv-upload"
           onChange={handleFileInput}
+          disabled={parseReceipt.isPending}
         />
         <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center">
           <div className={`p-4 rounded-full mb-4 transition-colors ${isDragActive ? 'bg-[var(--color-primary)]/20' : 'bg-[var(--color-bg)]'}`}>
             <UploadCloud size={40} className={isDragActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'} />
           </div>
           <p className="text-lg font-semibold text-[var(--color-text-main)] mb-2">
-            Drag & drop your POS CSV here
+            {parseReceipt.isPending ? 'Parsing Document...' : 'Drag & drop your POS CSV or PDF here'}
           </p>
           <p className="text-[var(--color-text-muted)] text-sm mb-6">
             or click to browse from your computer

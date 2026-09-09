@@ -18,7 +18,7 @@ function UploadComponent() {
     <ReceiptUploader
       isParsing={parseReceipt.isPending}
       categories={settings?.categories || []}
-      onParse={(base64) => parseReceipt.mutateAsync(base64)}
+      onParse={(base64) => parseReceipt.mutateAsync({ base64Image: base64, type: 'invoice' })}
       onConfirm={async (parsedItems) => {
         const matchedItems = parsedItems.filter(i => i.itemId);
         if (matchedItems.length === 0) {

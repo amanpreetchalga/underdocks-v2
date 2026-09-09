@@ -271,11 +271,11 @@ export const useCheckInventory = () => {
 
 export const useParseReceipt = () => {
   return useMutation({
-    mutationFn: async (base64Image: string) => {
+    mutationFn: async ({ base64Image, type = 'invoice' }: { base64Image: string, type?: 'invoice' | 'pos' }) => {
       const response = await fetch(`${API_URL}/receipts/parse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image }),
+        body: JSON.stringify({ image: base64Image, type }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
