@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
+import { useState, useRef, useMemo } from 'react';
+import { Upload, FileText, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useItems, useCreateItem } from '../api/inventory';
 import { saveMapping, getMapping } from '../lib/mappingMemory';
 import { CreateItemModal } from './CreateItemModal';
@@ -12,6 +12,7 @@ interface ParsedItem {
   qtyPerBox: number;
   unit: string;
   itemId?: string;
+  isValuable?: boolean;
 }
 
 interface ReceiptUploaderProps {
@@ -30,6 +31,11 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
   const createItem = useCreateItem();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
+
+  const [valuableMemory, setValuableMemory] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('underdocks_receipt_valuable') || '{}'); } catch { return {}; }
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,7 +59,8 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
         // Auto-map based on past memory
         const mappedItems = items.map(item => {
           const rememberedId = getMapping(item.name);
-          return rememberedId ? { ...item, itemId: rememberedId } : item;
+          const isValuable = valuableMemory[item.name] !== undefined ? valuableMemory[item.name] : true;
+          return { ...item, itemId: rememberedId, isValuable };
         });
         
         setParsedItems(mappedItems);
@@ -65,7 +72,7 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
     reader.readAsDataURL(file);
   };
 
-  const handleItemChange = (index: number, field: keyof ParsedItem, value: string | number) => {
+  const handleItemChange = (index: number, field: keyof ParsedItem, value: string | number | boolean) => {
     if (!parsedItems) return;
     
     if (field === 'itemId' && value === 'new') {
@@ -81,14 +88,162 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
 
   const handleConfirm = () => {
     if (parsedItems) {
-      // Save mappings for items that have an itemId selected
+      const valuableItems = parsedItems.filter(i => i.isValuable !== false);
+      if (valuableItems.length === 0) {
+        alert('You have not selected any items to add.');
+        return;
+      }
+
+      const unmapped = valuableItems.filter(i => !i.itemId);
+      if (unmapped.length > 0) {
+        alert(`Please map all items you want to keep to an inventory item. (${unmapped.length} unmapped)`);
+        return;
+      }
+
+      // Save preferences to memory
+      const newValMap = { ...valuableMemory };
       parsedItems.forEach(item => {
-        if (item.itemId) {
+        newValMap[item.name] = item.isValuable || false;
+        if (item.itemId && item.isValuable !== false) {
           saveMapping(item.name, item.itemId);
         }
       });
-      onConfirm(parsedItems);
+      localStorage.setItem('underdocks_receipt_valuable', JSON.stringify(newValMap));
+      setValuableMemory(newValMap);
+
+      onConfirm(valuableItems);
     }
+  };
+
+  const displayItems = useMemo(() => {
+    if (!parsedItems) return { visible: [], hidden: [] };
+    const visible = parsedItems.filter(i => i.isValuable !== false);
+    const hidden = parsedItems.filter(i => i.isValuable === false);
+    return { visible, hidden };
+  }, [parsedItems]);
+
+  const renderItemRow = (item: ParsedItem, isHidden: boolean) => {
+    const actualIdx = parsedItems!.findIndex(p => p === item);
+    
+    return (
+      <div key={actualIdx} className={`flex flex-wrap md:flex-nowrap gap-3 bg-[var(--color-bg)] p-3 rounded-xl border transition-colors ${isHidden ? 'opacity-70 border-[var(--color-border)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'}`}>
+        <div className="flex items-center gap-3 w-8 shrink-0">
+          <input 
+            type="checkbox"
+            checked={item.isValuable !== false}
+            onChange={(e) => handleItemChange(actualIdx, 'isValuable', e.target.checked)}
+            className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-primary)] cursor-pointer"
+          />
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Vendor Item Name</label>
+          <input 
+            type="text" 
+            value={item.name} 
+            onChange={(e) => handleItemChange(actualIdx, 'name', e.target.value)}
+            disabled={isHidden}
+            className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none mb-2 disabled:opacity-50"
+          />
+          <select
+            value={item.itemId || ''}
+            onChange={(e) => handleItemChange(actualIdx, 'itemId', e.target.value)}
+            disabled={isHidden}
+            className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
+          >
+            <option value="">-- Match to Inventory Item --</option>
+            {inventoryItems?.map((inv) => (
+              <option key={inv.id} value={inv.id}>
+                {inv.name} ({inv.unit})
+              </option>
+            ))}
+            <option value="new">➕ Create New Item...</option>
+          </select>
+        </div>
+        <div className="w-20">
+          <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Boxes</label>
+          <input 
+            type="number" 
+            value={item.quantity} 
+            onChange={(e) => handleItemChange(actualIdx, 'quantity', parseFloat(e.target.value) || 0)}
+            disabled={isHidden}
+            className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
+          />
+        </div>
+        <div className="w-20">
+          <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Qty/Box</label>
+          <input 
+            type="number" 
+            value={item.qtyPerBox} 
+            onChange={(e) => handleItemChange(actualIdx, 'qtyPerBox', parseFloat(e.target.value) || 0)}
+            disabled={isHidden}
+            className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none disabled:opacity-50"
+          />
+        </div>
+        <div className="w-20">
+          <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Weight</label>
+          <div className="relative">
+            <input 
+              type="number" 
+              value={item.quantity * item.qtyPerBox} 
+              disabled
+              className="w-full bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-muted)] cursor-not-allowed"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-muted)]">{item.unit}</span>
+          </div>
+        </div>
+        {/* Converted Base Unit Display */}
+        <div className="w-24 border-l border-[var(--color-border)] pl-3 flex flex-col justify-end">
+          {(() => {
+            if (isHidden) return null;
+            const invItem = inventoryItems?.find(i => i.id === item.itemId);
+            if (!invItem) return null;
+            
+            let finalAmount = item.quantity * item.qtyPerBox;
+            let computedPieces: number | null = null;
+            let isWeightMismatch = false;
+            let expectedGross = 0;
+            if (invItem.grossWeightPerBox && Math.abs(item.qtyPerBox - invItem.grossWeightPerBox) > 0.05) {
+              isWeightMismatch = true;
+              expectedGross = invItem.grossWeightPerBox;
+            }
+
+            // If the parsed unit matches the alt unit, convert to main unit
+            if (invItem.netWeightPerBox) {
+              finalAmount = item.quantity * invItem.netWeightPerBox;
+            }
+            else if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
+              finalAmount = finalAmount / invItem.altUnitFactor;
+            } 
+            // If the parsed unit matches the main unit, but an alt unit (Base Unit) is defined, compute pieces
+            else if (invItem.unit === item.unit && invItem.altUnit && invItem.altUnitFactor) {
+              computedPieces = finalAmount / invItem.altUnitFactor;
+            }
+            
+            return (
+              <div className="mb-2 text-right">
+                {isWeightMismatch && (
+                  <div className="flex items-center justify-end gap-1 text-orange-400 mb-1" title={`Expected gross weight per box: ${expectedGross}kg`}>
+                    <AlertCircle size={12} />
+                    <span className="text-[9px] font-bold">Weight Mismatch</span>
+                  </div>
+                )}
+                <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">
+                  Will Add {invItem.netWeightPerBox ? '(Net)' : ''}
+                </span>
+                <span className="font-bold text-[var(--color-text-main)] text-sm">
+                  +{Math.round(finalAmount * 100) / 100} {invItem.unit}
+                </span>
+                {computedPieces !== null && !invItem.netWeightPerBox && (
+                  <span className="block text-xs text-[var(--color-text-muted)]">
+                    ≈ {Math.round(computedPieces)} {invItem.altUnit}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -163,129 +318,45 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
           <div className="bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-2xl shadow-sm flex flex-col h-[600px]">
             <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]/50 rounded-t-2xl">
               <p className="text-sm text-[var(--color-text-muted)]">
-                Review the parsed items below. You can edit any fields before confirming.
+                Review the parsed items below. You can ignore any items by unchecking them.
               </p>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {parsedItems.length === 0 ? (
+              {displayItems.visible.length === 0 && displayItems.hidden.length === 0 ? (
                 <p className="text-center text-[var(--color-text-muted)] py-10">No items detected.</p>
               ) : (
-                parsedItems.map((item, i) => (
-                  <div key={i} className="flex flex-wrap md:flex-nowrap gap-3 bg-[var(--color-bg)] p-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-primary)]/50 transition-colors">
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Vendor Item Name</label>
-                      <input 
-                        type="text" 
-                        value={item.name} 
-                        onChange={(e) => handleItemChange(i, 'name', e.target.value)}
-                        className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none mb-2"
-                      />
-                      <select
-                        value={item.itemId || ''}
-                        onChange={(e) => handleItemChange(i, 'itemId', e.target.value)}
-                        className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none"
-                      >
-                        <option value="">-- Match to Inventory Item --</option>
-                        {inventoryItems?.map((inv) => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.name} ({inv.unit})
-                          </option>
-                        ))}
-                        <option value="new">➕ Create New Item...</option>
-                      </select>
-                    </div>
-                    <div className="w-20">
-                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Boxes</label>
-                      <input 
-                        type="number" 
-                        value={item.quantity} 
-                        onChange={(e) => handleItemChange(i, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none"
-                      />
-                    </div>
-                    <div className="w-20">
-                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Qty/Box</label>
-                      <input 
-                        type="number" 
-                        value={item.qtyPerBox} 
-                        onChange={(e) => handleItemChange(i, 'qtyPerBox', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-main)] focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none"
-                      />
-                    </div>
-                    <div className="w-20">
-                      <label className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] ml-1">Weight</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          value={item.quantity * item.qtyPerBox} 
-                          disabled
-                          className="w-full bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-muted)] cursor-not-allowed"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-muted)]">{item.unit}</span>
-                      </div>
-                    </div>
-                    {/* Converted Base Unit Display */}
-                    <div className="w-24 border-l border-[var(--color-border)] pl-3 flex flex-col justify-end">
-                      {(() => {
-                        const invItem = inventoryItems?.find(i => i.id === item.itemId);
-                        if (!invItem) return null;
-                        
-                        let finalAmount = item.quantity * item.qtyPerBox;
-                        let computedPieces: number | null = null;
-                        let isWeightMismatch = false;
-                        let expectedGross = 0;
-                        if (invItem.grossWeightPerBox && Math.abs(item.qtyPerBox - invItem.grossWeightPerBox) > 0.05) {
-                          isWeightMismatch = true;
-                          expectedGross = invItem.grossWeightPerBox;
-                        }
+                <>
+                  {displayItems.visible.map(item => renderItemRow(item, false))}
 
-                        // If the parsed unit matches the alt unit, convert to main unit
-                        if (invItem.netWeightPerBox) {
-                          finalAmount = item.quantity * invItem.netWeightPerBox;
-                        }
-                        else if (invItem.unit !== item.unit && invItem.altUnit === item.unit && invItem.altUnitFactor) {
-                          finalAmount = finalAmount / invItem.altUnitFactor;
-                        } 
-                        // If the parsed unit matches the main unit, but an alt unit (Base Unit) is defined, compute pieces
-                        else if (invItem.unit === item.unit && invItem.altUnit && invItem.altUnitFactor) {
-                          computedPieces = finalAmount / invItem.altUnitFactor;
-                        }
-                        
-                        return (
-                          <div className="mb-2 text-right">
-                            {isWeightMismatch && (
-                              <div className="flex items-center justify-end gap-1 text-orange-400 mb-1" title={`Expected gross weight per box: ${expectedGross}kg`}>
-                                <AlertCircle size={12} />
-                                <span className="text-[9px] font-bold">Weight Mismatch</span>
-                              </div>
-                            )}
-                            <span className="text-[10px] uppercase font-bold text-[var(--color-primary)] block">
-                              Will Add {invItem.netWeightPerBox ? '(Net)' : ''}
-                            </span>
-                            <span className="font-bold text-[var(--color-text-main)] text-sm">
-                              +{Math.round(finalAmount * 100) / 100} {invItem.unit}
-                            </span>
-                            {computedPieces !== null && !invItem.netWeightPerBox && (
-                              <span className="block text-xs text-[var(--color-text-muted)]">
-                                ≈ {Math.round(computedPieces)} {invItem.altUnit}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
+                  {displayItems.hidden.length > 0 && (
+                    <div className="pt-4 border-t border-[var(--color-border)] mt-4">
+                      <button 
+                        onClick={() => setShowHidden(!showHidden)}
+                        className="flex items-center justify-center w-full py-2 gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] transition-colors mx-auto"
+                      >
+                        {showHidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {showHidden ? 'Hide' : 'Show'} {displayItems.hidden.length} ignored items
+                      </button>
+                      
+                      {showHidden && (
+                        <div className="mt-4 space-y-3">
+                          {displayItems.hidden.map(item => renderItemRow(item, true))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  )}
+                </>
               )}
             </div>
 
             <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-bg)]/50 rounded-b-2xl">
               <button 
                 onClick={handleConfirm}
-                className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[var(--color-primary)]/20"
+                disabled={displayItems.visible.length === 0}
+                className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[var(--color-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check size={20} /> Convert to Inventory Stock
+                <Check size={20} /> Convert {displayItems.visible.length} Items to Inventory Stock
               </button>
             </div>
           </div>
