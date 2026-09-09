@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ReceiptUploader } from '../components/ReceiptUploader';
 import { ReceiptHistory } from '../components/ReceiptHistory';
-import { useItems, useSettings, useParseReceipt, useBatchUpdateStock, useReceipts, useSaveReceipt } from '../api/inventory';
+import { useItems, useSettings, useParseReceipt, useBatchUpdateStock, useReceipts, useSaveReceipt, useDeleteReceipt } from '../api/inventory';
 
 export const Route = createFileRoute('/upload')({
   component: UploadComponent,
@@ -15,6 +15,7 @@ function UploadComponent() {
   const parseReceipt = useParseReceipt();
   const batchUpdateStock = useBatchUpdateStock();
   const saveReceipt = useSaveReceipt();
+  const deleteReceipt = useDeleteReceipt();
   const { data: receipts, isLoading: receiptsLoading } = useReceipts();
 
   return (
@@ -74,7 +75,11 @@ function UploadComponent() {
           }
         }}
       />
-      <ReceiptHistory receipts={receipts} isLoading={receiptsLoading} />
+      <ReceiptHistory 
+        receipts={receipts} 
+        isLoading={receiptsLoading} 
+        onDeleteReceipt={(id) => deleteReceipt.mutate(id)}
+      />
     </div>
   );
 }

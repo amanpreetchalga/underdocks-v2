@@ -238,6 +238,82 @@ Resources:
             Path: /sales
             Method: POST
 
+  GetReceiptsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: getReceipts.handler
+      Environment:
+        Variables:
+          RECEIPTS_TABLE_NAME: "UnderdocksReceiptsV2"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "UnderdocksReceiptsV2"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /receipts
+            Method: GET
+
+  SaveReceiptFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: saveReceipt.handler
+      Environment:
+        Variables:
+          RECEIPTS_TABLE_NAME: "UnderdocksReceiptsV2"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "UnderdocksReceiptsV2"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /receipts
+            Method: POST
+
+  DeleteReceiptFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: deleteReceipt.handler
+      Environment:
+        Variables:
+          TABLE_NAME: "UnderdocksReceiptsV2"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "UnderdocksReceiptsV2"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /receipts/{id}
+            Method: DELETE
+
+  DeleteSaleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: deleteSale.handler
+      Environment:
+        Variables:
+          TABLE_NAME: "UnderdocksSalesV2"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "UnderdocksSalesV2"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UnderdocksApi
+            Path: /sales/{id}
+            Method: DELETE
+
 Outputs:
   ApiEndpoint:
     Description: "API Gateway endpoint URL"

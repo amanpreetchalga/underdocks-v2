@@ -7,9 +7,10 @@ interface SalesPageProps {
   isLoading: boolean;
   onUploadClick?: () => void;
   hideUploadButton?: boolean;
+  onDeleteSale?: (id: string) => void;
 }
 
-export function SalesPage({ sales, isLoading, onUploadClick, hideUploadButton }: SalesPageProps) {
+export function SalesPage({ sales, isLoading, onUploadClick, hideUploadButton, onDeleteSale }: SalesPageProps) {
   const [expandedReceipts, setExpandedReceipts] = useState<Set<string>>(new Set());
 
   const toggleExpand = (id: string) => {
@@ -82,8 +83,22 @@ export function SalesPage({ sales, isLoading, onUploadClick, hideUploadButton }:
                       <div className="font-bold text-[var(--color-text-main)]">{totalItems}</div>
                       <div className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">Items Sold</div>
                     </div>
-                    <div className="text-[var(--color-text-muted)]">
-                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this sale receipt? This will not revert your inventory stock.')) {
+                            onDeleteSale?.(receipt.id);
+                          }
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete Sale"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                      </button>
+                      <div className="text-[var(--color-text-muted)] p-2">
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </div>
                     </div>
                   </div>
                 </div>
