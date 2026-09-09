@@ -60,7 +60,7 @@ export function ReceiptUploader({ onParse, onConfirm, isParsing, categories }: R
         const mappedItems = items.map(item => {
           const rememberedId = getMapping(item.name);
           const isValuable = valuableMemory[item.name] !== undefined ? valuableMemory[item.name] : true;
-          return { ...item, itemId: rememberedId, isValuable };
+          return { ...item, itemId: rememberedId || undefined, isValuable };
         });
         
         setParsedItems(mappedItems);
