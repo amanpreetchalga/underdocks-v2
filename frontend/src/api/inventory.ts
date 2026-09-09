@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InventoryItem, AppSettings, SalesReceipt } from '../types/types';
+import type { InventoryItem, AppSettings, SalesReceipt, SupplierReceipt } from '../types/types';
 
 let rawApiUrl = import.meta.env.VITE_API_URL || '/api';
 const API_URL = rawApiUrl.replace(/\/$/, ''); // Prevent double slashes if user pasted with trailing slash
@@ -282,6 +282,35 @@ export const useParseReceipt = () => {
         throw new Error(err.message || 'Failed to parse receipt');
       }
       return response.json();
+    },
+  });
+};
+
+export const useReceipts = () => {
+  return useQuery<SupplierReceipt[]>({
+    queryKey: ['receipts'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/receipts`);
+      if (!response.ok) throw new Error('Failed to fetch receipts');
+      return response.json();
+    },
+  });
+};
+
+export const useSaveReceipt = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (receipt: Omit<SupplierReceipt, 'id' | 'createdAt'>) => {
+      const response = await fetch(`${API_URL}/receipts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(receipt),
+      });
+      if (!response.ok) throw new Error('Failed to save receipt');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['receipts'] });
     },
   });
 };

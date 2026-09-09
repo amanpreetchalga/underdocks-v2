@@ -55,3 +55,18 @@ export interface SalesReceipt {
   items: PosParsedItem[];
   createdAt: string;
 }
+
+export interface SupplierReceipt {
+  id: string;
+  date: string;
+  createdAt: string;
+  items: {
+    id?: string;
+    name?: string;
+    originalName?: string;
+    quantity: number;
+    qtyPerBox?: number;
+    unit?: string;
+    itemId?: string;
+  }[];
+}
